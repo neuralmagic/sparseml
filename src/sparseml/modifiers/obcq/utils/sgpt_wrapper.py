@@ -171,6 +171,17 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                     else:
                         q = torch.quantize_per_channel(q, scale, zero_point, 0, dtype)
                     q = torch.dequantize(q)
+                elif hasattr(self.layer, "quantization_scheme"):
+                    if self.layer.quantization_scheme.weights is not None:
+                        scale = self.layer.weight_scale
+                        zero_point = self.layer.weight_zero_point
+                        from compressed_tensors.quantization.lifecycle.forward import (
+                            fake_quantize,
+                        )
+
+                        q = fake_quantize(
+                            q, scale, zero_point, self.layer.quantization_scheme.weights
+                        )
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2

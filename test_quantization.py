@@ -1,10 +1,5 @@
 import torch
-from sparseml.transformers import oneshot, SparseAutoModelForCausalLM, SparseAutoTokenizer
-from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from sparseml.transformers.finetune.data import TextGenerationDataset
-from torch.utils.data import DataLoader
-from transformers import DefaultDataCollator, AutoModelForCausalLM
-from sparseml.pytorch.utils import tensors_to_device
+from sparseml.transformers import oneshot, SparseAutoModelForCausalLM
 from compressed_tensors.quantization.utils import is_module_quantized
 import math
 import random
@@ -17,6 +12,7 @@ def old_quant_linear():
             QuantizationModifier:
                 ignore:
                     - model.layers.0.mlp.down_proj
+                    - lm_head
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
                     - SiLU
@@ -44,6 +40,12 @@ def old_quant_linear():
                             strategy: "tensor"
                         input_activations: null
                         output_activations: null
+            SparseGPTModifier:
+                sparsity: 0.0
+                block_size: 128
+                sequential_update: False
+                quantize: True
+                targets: ["re:model.layers.\\\d+$"]
     """
 
 def new_quant_linear():
@@ -51,7 +53,7 @@ def new_quant_linear():
     test_stage:
         quant_modifiers:
             vLLMQuantizationModifier:
-                ignore: ["model.layers.0.mlp.down_proj"]
+                ignore: ["lm_head", "model.layers.0.mlp.down_proj"]
                 config_groups:
                     group_0:
                         weights:
@@ -75,35 +77,16 @@ def new_quant_linear():
                         input_activations: null
                         output_activations: null
                         targets: ["Embedding"]
+            SparseGPTModifier:
+                sparsity: 0.0
+                block_size: 128
+                sequential_update: False
+                quantize: True
+                targets: ["re:model.layers.\\\d+$"]
     """
 
-def labeled_dataloader(dataset_name, model_name):
-    tokenizer = SparseAutoTokenizer.from_pretrained(model_name)
-    data_args = DataTrainingArguments(
-        dataset=dataset_name,
-        max_seq_length=512,
-        pad_to_max_length=False,
-    )
-    dataset_manager = TextGenerationDataset.load_from_registry(
-        data_args.dataset,
-        data_args=data_args,
-        split="train",
-        tokenizer=tokenizer,
-    )
-    calib_dataset = dataset_manager.tokenize_and_process(
-        dataset_manager.get_raw_dataset()
-    )
-    data_loader = DataLoader(
-        calib_dataset, 
-        batch_size=1, 
-        collate_fn=DefaultDataCollator(),
-        sampler=torch.utils.data.RandomSampler(calib_dataset)
-    )
-
-    return data_loader
-
 def run_oneshot(model, recipe, dataset, output_dir):
-    num_calibration_samples = 512
+    num_calibration_samples = 1024
     max_seq_length = 512
     pad_to_max_length = False
 
@@ -121,7 +104,6 @@ def run_oneshot(model, recipe, dataset, output_dir):
 def test_quantization_eval(input_seed):
     random.seed(input_seed)
     torch.manual_seed(input_seed)
-    num_comparisons = 6
     model_stub = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
     model_old = SparseAutoModelForCausalLM.from_pretrained(model_stub, device_map="cuda:0")
     dataset = "open_platypus"
@@ -130,7 +112,7 @@ def test_quantization_eval(input_seed):
 
     model_new = SparseAutoModelForCausalLM.from_pretrained(model_stub, device_map="cuda:1")
     with session_manager.create_session():
-        run_oneshot(model_new, new_quant_linear(), dataset, "llama1.1b_new_quant_adjusted")
+        run_oneshot(model_new, new_quant_linear(), dataset, "llama1.1b_new_quant")
 
     old_quant_count = 0
     old_quant_input_count = 0
@@ -174,30 +156,11 @@ def test_quantization_eval(input_seed):
             print(f"weight mismatch {name} {o_zp} {n_zp}")
 
     for name, (o_scale, o_zp) in old_input_info.items():
-        #print(name)
+        print(name)
         n_scale, n_zp = new_input_info[name]
         if not math.isclose(o_scale, n_scale, abs_tol=1e-3, rel_tol=1e-3):
             print(f"input mismatch {name} {o_scale} {n_scale}")
         if not o_zp == n_zp:
             print(f"input mismatch {name} {o_zp} {n_zp}")
 
-    dataloader = labeled_dataloader(dataset, model_stub)
-    total_old_ppl = 0.0
-    total_new_ppl = 0.0
-    for idx, sample in enumerate(dataloader):
-        if idx >= num_comparisons:
-            break
-        old_output = model_old(**(tensors_to_device(sample, "cuda:0")))
-        new_output = model_new(**(tensors_to_device(sample, "cuda:1")))
-        old_ppl = torch.exp(old_output.loss)
-        new_ppl = torch.exp(new_output.loss)
-        #print(f"Perplexity: new {new_ppl} old {old_ppl}")
-        total_old_ppl += old_ppl
-        total_new_ppl += new_ppl
-
-    avg_new_ppl = total_new_ppl / num_comparisons
-    avg_old_ppl = total_old_ppl / num_comparisons
-    print(f"Avg Perplexity: new {avg_new_ppl} old {avg_old_ppl}")
-    return avg_new_ppl, avg_old_ppl
-
-test_quantization_eval(input_seed=42)
+test_quantization_eval(input_seed=0)

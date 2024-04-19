@@ -34,7 +34,7 @@ from compressed_tensors.compressors import infer_compressor_from_model_config
 from compressed_tensors.quantization import (
     QuantizationConfig,
     apply_quantization_config,
-    apply_state_dict,
+    load_pretrained_quantization,
 )
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
@@ -134,7 +134,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         if quantization_config is not None:
             # if we loaded from a HF stub, find the cached model
             apply_quantization_config(model, quantization_config)
-            apply_state_dict(model, pretrained_model_name_or_path)
+            load_pretrained_quantization(model, pretrained_model_name_or_path)
         else:
             recipe = resolve_recipe(
                 recipe=recipe, model_path=pretrained_model_name_or_path

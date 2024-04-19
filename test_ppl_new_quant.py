@@ -5,14 +5,13 @@ from transformers import DefaultDataCollator
 from torch.utils.data import DataLoader
 import torch
 import random
-from tqdm import tqdm
 from sparseml.pytorch.utils import tensors_to_device
 
-MODEL_PATH = "llama1.1b_old_quant"
+MODEL_PATH_OLD = "llama1.1b_old_quant_wo"
+MODEL_PATH_NEW = "llama1.1b_new_quant_wo"
 MAX_SEQ_LENGTH = 512
 DATASET_NAME = "open_platypus"
-NUM_COMPARISONS = 32
-DEVICE = "cpu"
+NUM_COMPARISONS = 6
 
 def get_dataloader(dataset_name, tokenizer):
     data_args = DataTrainingArguments(
@@ -42,27 +41,19 @@ def main(seed=0):
     random.seed(seed)
     torch.manual_seed(seed)
 
-    model = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH, device_map=DEVICE)
-    tokenizer = SparseAutoTokenizer.from_pretrained(MODEL_PATH)
+    model_new = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH_NEW, device_map="cuda:0")
+    model_old = SparseAutoModelForCausalLM.from_pretrained(MODEL_PATH_OLD, device_map="cuda:1")
+    tokenizer = SparseAutoTokenizer.from_pretrained(MODEL_PATH_NEW)
     dataloader = get_dataloader(DATASET_NAME, tokenizer)
 
-    total_ppl = 0.0
-    num_non_nan = 0
-    for idx, sample in tqdm(enumerate(dataloader)):
+    for idx, sample in enumerate(dataloader):
         if idx >= NUM_COMPARISONS:
             break
-        sample = tensors_to_device(sample, DEVICE)
-        output = model(**sample)
-        print(output.loss)
-        if not torch.isnan(output.loss):
-            ppl = torch.exp(output.loss)
-            total_ppl += ppl
-            num_non_nan += 1
-
-    avg_ppl = total_ppl / num_non_nan
-    print(f"Avg Perplexity over {num_non_nan} samples: {avg_ppl}")
-    print(f"Ignored {NUM_COMPARISONS - num_non_nan} nans")
-    return avg_ppl
+        sample_new = tensors_to_device(sample, "cuda:0")
+        sample_old = tensors_to_device(sample, "cuda:1")
+        output_new = model_new(**sample_new)
+        output_old = model_old(**sample_old)
+        print(torch.exp(output_new.loss).item(), torch.exp(output_old.loss).item())
 
 if __name__ == "__main__":
-    main(seed=8743)
+    main(seed=5678)
