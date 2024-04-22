@@ -705,7 +705,8 @@ def create_recipe_string_from_modifiers(
     recipe_dict = {
         f"{modifier_group_name}_stage": {
             f"{default_group_name}_modifiers": {
-                modifier.__class__.__name__: modifier.dict() for modifier in modifiers
+                modifier.__class__.__name__: modifier.model_dump()
+                for modifier in modifiers
             }
         }
     }

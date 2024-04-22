@@ -264,7 +264,7 @@ class QuantizationScheme(BaseModel):
         """
         :return: YAML friendly string serialization
         """
-        dict_repr = self.dict()
+        dict_repr = self.model_dump()
         dict_repr = {
             key: val if val is not None else "null" for key, val in dict_repr.items()
         }
