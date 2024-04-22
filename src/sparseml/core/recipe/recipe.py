@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
-from pydantic import model_validator, Field
+from pydantic import Field, model_validator
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
@@ -152,7 +152,7 @@ class Recipe(RecipeBase):
                 )
                 _LOGGER.debug(f"Input string: {path_or_modifiers}")
                 obj = _load_json_or_yaml_string(path_or_modifiers)
-                return Recipe.parse_obj(obj)
+                return Recipe.model_validate(obj)
         else:
             _LOGGER.info(f"Loading recipe from file {path_or_modifiers}")
 
@@ -534,7 +534,7 @@ class Recipe(RecipeBase):
 
         :return: A dictionary representation of the recipe
         """
-        dict_ = super().dict(*args, **kwargs)
+        dict_ = super().model_dump(*args, **kwargs)
         stages = {}
 
         for stage in dict_["stages"]:

@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 from packaging import version
-from pydantic import field_validator, BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from torch.nn import Identity
 
 

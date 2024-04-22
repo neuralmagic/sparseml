@@ -17,7 +17,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from pydantic import ConfigDict, BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from sparseml.exporters.transforms import OnnxTransform
 from sparseml.exporters.transforms.kv_cache.transforms_codegen import (
@@ -47,8 +47,9 @@ class KeyValueCacheConfig(BaseModel):
     additional_transforms: Union[
         List[Type[OnnxTransform]], Type[OnnxTransform], None
     ] = Field(
-        None, description="A transform class (or list thereof) to use for additional "
-        "transforms to the model required for finalizing the kv cache injection."
+        None,
+        description="A transform class (or list thereof) to use for additional "
+        "transforms to the model required for finalizing the kv cache injection.",
     )
     key_num_attention_heads: str = Field(
         description="The key to use to get the number of attention heads from the "

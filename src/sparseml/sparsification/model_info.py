@@ -25,7 +25,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Union
 
 import numpy
-from pydantic import model_validator, BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from sparseml.utils import clean_path, create_parent_dirs
 

@@ -15,7 +15,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import model_validator, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from sparseml.core.framework import Framework
 from sparseml.core.modifier import StageModifiers
@@ -45,6 +45,8 @@ class RecipeStage(RecipeBase):
         False otherwise
     :param args_evaluated: the evaluated RecipeArgs for the stage
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     group: Optional[str] = None
     run_type: Optional[StageRunType] = None

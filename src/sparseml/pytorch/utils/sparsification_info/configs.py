@@ -17,7 +17,7 @@ from collections import Counter, defaultdict
 from typing import Any, Dict, Generator, Tuple, Union
 
 import torch.nn
-from pydantic import ConfigDict, BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from sparseml.pytorch.utils.sparsification_info.helpers import (
     get_leaf_operations,
