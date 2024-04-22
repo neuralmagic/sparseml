@@ -14,46 +14,29 @@
 
 from pathlib import Path
 
+import torch
+
 from clearml import Task
-from sparseml.transformers import apply
-from sparseml.utils import is_package_available
+from sparseml.transformers import train
 
 
-is_torch_available = is_package_available("torch")
-if is_torch_available:
-    import torch
-
-    torch_err = None
-else:
-    torch = object
-    torch_err = ModuleNotFoundError(
-        "`torch` is not installed, use `pip install torch` to log to Weights and Biases"
-    )
-
-
-def test_oneshot_and_finetune(tmp_path: Path):
-    recipe_str = "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
+def test_finetune_wout_recipe(tmp_path: Path):
+    recipe_str = None
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
-    if is_torch_available and not torch.cuda.is_available():
+    if not torch.cuda.is_available():
         device = "cpu"
-    dataset = "wikitext"
-    dataset_config_name = "wikitext-2-raw-v1"
-    concatenate_data = True
-    run_stages = True
+    dataset = "open_platypus"
+    concatenate_data = False
     output_dir = tmp_path
     max_steps = 50
-    splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
+    splits = "train"
 
-    # clearML will automatically log default capturing entries without
-    # explicitly calling logger. Logs accessible in https://app.clear.ml/
     Task.init(project_name="test", task_name="test_oneshot_and_finetune")
 
-    apply(
+    train(
         model=model,
         dataset=dataset,
-        dataset_config_name=dataset_config_name,
-        run_stages=run_stages,
         output_dir=output_dir,
         recipe=recipe_str,
         max_steps=max_steps,

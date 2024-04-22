@@ -140,9 +140,14 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
-    runs-on: ubuntu-22.04
+    runs-on: aws-avx2-64G
     env:
       SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -164,9 +169,14 @@ jobs:
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-pytorch-tests:
-    runs-on: ubuntu-22.04
+    runs-on: aws-avx2-64G
     env:
       SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -212,9 +222,14 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   transformers-tests:
-    runs-on: ubuntu-22.04
+    runs-on: aws-avx2-64G
     env:
       SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     needs: test-setup
     if: ${{needs.test-setup.outputs.transformers == 1}}
     steps:
