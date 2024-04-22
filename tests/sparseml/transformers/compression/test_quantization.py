@@ -60,34 +60,38 @@ class TestQuantizationMatches(unittest.TestCase):
     max_seq_length = 512
     num_comparisons = 2
 
-    def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
+    @classmethod
+    def setUpClass(cls):
+        cls.test_dir = tempfile.mkdtemp()
 
-        self.model_old = SparseAutoModelForCausalLM.from_pretrained(
-            self.model_stub, device_map="cuda:0"
+        cls.model_old = SparseAutoModelForCausalLM.from_pretrained(
+            cls.model_stub, device_map="cuda:0"
         )
-        self._run_oneshot(
-            self.model_old,
-            self.old_recipe,
-            self.dataset,
-            os.path.join(self.test_dir, self.old_output),
-        )
-
-        self.model_new = SparseAutoModelForCausalLM.from_pretrained(
-            self.model_stub, device_map="cuda:0"
-        )
-        self._run_oneshot(
-            self.model_new,
-            self.new_recipe,
-            self.dataset,
-            os.path.join(self.test_dir, self.new_output),
+        cls._run_oneshot(
+            cls.model_old,
+            cls.old_recipe,
+            cls.dataset,
+            os.path.join(cls.test_dir, cls.old_output),
         )
 
-    def tearDown(self):
-        shutil.rmtree(self.test_dir)
+        cls.model_new = SparseAutoModelForCausalLM.from_pretrained(
+            cls.model_stub, device_map="cuda:0"
+        )
+        cls._run_oneshot(
+            cls.model_new,
+            cls.new_recipe,
+            cls.dataset,
+            os.path.join(cls.test_dir, cls.new_output),
+        )
 
-    def _run_oneshot(self, model, recipe, dataset, output_dir):
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.test_dir)
+
+    @staticmethod
+    def _run_oneshot(model, recipe, dataset, output_dir):
         num_calibration_samples = 512
+        max_seq_length = 512
         pad_to_max_length = False
 
         oneshot(
@@ -95,7 +99,7 @@ class TestQuantizationMatches(unittest.TestCase):
             dataset=dataset,
             overwrite_output_dir=True,
             output_dir=output_dir,
-            max_seq_length=self.max_seq_length,
+            max_seq_length=max_seq_length,
             num_calibration_samples=num_calibration_samples,
             recipe=recipe,
             pad_to_max_length=pad_to_max_length,
