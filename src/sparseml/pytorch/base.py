@@ -49,7 +49,8 @@ __all__ = [
 
 
 _TORCH_MIN_VERSION = "1.0.0"
-_TORCH_MAX_VERSION = os.environ.get("MAX_TORCH", "2.1.10")
+# set max to 2.2.99 to account for bugfix versions with 2.2
+_TORCH_MAX_VERSION = os.environ.get("MAX_TORCH", "2.2.99")
 
 
 def check_torch_install(
