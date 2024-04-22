@@ -58,7 +58,10 @@ _deps = [
     "compressed_tensors @ git+ssh://git@github.com/neuralmagic/compressed_tensors.git",
     "clearml==1.14.4",
 ]
-_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
+_nm_deps = [
+    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}",
+    f"{'compressed-tensors' if is_release else 'compress-tensors-nightly'}~={version_nm_deps}",
+]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]

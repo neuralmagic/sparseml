@@ -40,7 +40,9 @@ from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
-from sparseml.transformers.compression import modify_save_pretrained
+from sparseml.transformers.sparsification.compressed_tensors_utils import (
+    modify_save_pretrained,
+)
 from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
