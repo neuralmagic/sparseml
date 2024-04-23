@@ -45,7 +45,7 @@ _deps = [
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
-    "pydantic>=1.8.2,<2.0.0",
+    "pydantic>=2.0.0,<2.8.0",
     "requests>=2.0.0",
     "scikit-learn>=0.24.2",
     "scipy<1.9.2,>=1.8; python_version <= '3.9'",
