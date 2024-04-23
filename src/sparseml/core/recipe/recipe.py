@@ -174,7 +174,7 @@ class Recipe(RecipeBase):
                     raise ValueError(
                         f"Could not parse recipe from path {path_or_modifiers}"
                     )
-            return Recipe.parse_obj(obj)
+            return Recipe.model_validate(obj)
 
     @staticmethod
     def simplify_recipe(
@@ -516,22 +516,6 @@ class Recipe(RecipeBase):
 
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         """
-        >>> recipe_str = '''
-        ... test_stage:
-        ...     pruning_modifiers:
-        ...         ConstantPruningModifier:
-        ...             start: 0.0
-        ...             end: 2.0
-        ...             targets: ['re:.*weight']
-        ... '''
-        >>> recipe = Recipe.create_instance(recipe_str)
-        >>> recipe_dict = recipe.dict()
-        >>> stage = recipe_dict["stages"]["test"]
-        >>> pruning_mods = stage[0]['modifiers']['pruning']
-        >>> modifier_args = pruning_mods[0]['ConstantPruningModifier']
-        >>> modifier_args == {'start': 0.0, 'end': 2.0, 'targets': ['re:.*weight']}
-        True
-
         :return: A dictionary representation of the recipe
         """
         dict_ = super().model_dump(*args, **kwargs)
@@ -578,36 +562,34 @@ class Recipe(RecipeBase):
         """
         Get a dictionary representation of the recipe for yaml serialization
         The returned dict will only contain information necessary for yaml
-        serialization (ignores metadata, version, etc), and must not be used
-        in place of the dict method
+        serialization and must not be used in place of the dict method
 
         :return: A dictionary representation of the recipe for yaml serialization
         """
 
-        def _modifier_group_to_dict(modifier_group: List[Dict[str, Any]]):
-            # convert a list of modifiers to a dict of modifiers
-            return {
-                key: value
-                for modifier in modifier_group
-                for key, value in modifier.items()
-            }
+        original_recipe_dict = self.dict()
+        yaml_recipe_dict = {}
 
-        def _stage_to_dict(stage: Dict[str, Any]):
-            # convert a stage to a dict of modifiers
-            return {
-                modifier_group_name: _modifier_group_to_dict(modifier_group)
-                for modifier_group_name, modifier_group in stage["modifiers"].items()
-            }
+        # populate recipe level attributes
+        recipe_level_attributes = ["version", "args", "metadata"]
 
-        final_dict = {}
-        for stage_name, stages in self.dict()["stages"].items():
-            if len(stages) == 1:
-                final_dict[stage_name] = _stage_to_dict(stages[0])
-            else:
-                for idx, stage in enumerate(stages):
-                    final_dict[stage_name + "_" + str(idx)] = _stage_to_dict(stage)
+        for attribute in recipe_level_attributes:
+            if attribute_value := original_recipe_dict.get(attribute):
+                yaml_recipe_dict[attribute] = attribute_value
 
-        return final_dict
+        # populate stages
+        stages = original_recipe_dict["stages"]
+        for stage_name, stage_list in stages.items():
+            # stage is always a list of size 1
+            stage = stage_list[0]
+            stage_dict = get_yaml_serializable_stage_dict(modifiers=stage["modifiers"])
+
+            # infer run_type from stage
+            if run_type := stage.get("run_type"):
+                stage_dict["run_type"] = run_type
+
+            yaml_recipe_dict[stage_name] = stage_dict
+        return yaml_recipe_dict
 
 
 @dataclass
@@ -712,3 +694,51 @@ def create_recipe_string_from_modifiers(
     }
     recipe_str: str = yaml.dump(recipe_dict)
     return recipe_str
+
+
+def get_modifiers_dict(modifiers: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+    group_dict = {}
+
+    for modifier in modifiers:
+        modifier_type = modifier["type"]
+        modifier_group = modifier["group"]
+
+        if modifier_group not in group_dict:
+            group_dict[modifier_group] = []
+
+        modifier_dict = {modifier_type: modifier["args"]}
+        group_dict[modifier_group].append(modifier_dict)
+
+    return group_dict
+
+
+def get_yaml_serializable_stage_dict(modifiers: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    This function is used to convert a list of modifiers into a dictionary
+    where the keys are the group names and the values are the modifiers
+    which in turn are dictionaries with the modifier type as the key and
+    the modifier args as the value.
+
+    This is needed to conform to our recipe structure during yaml serialization
+    where each stage, modifier_groups, and modifiers are represented as
+    valid yaml dictionaries.
+
+    Note: This function assumes that modifier groups do not contain the same
+    modifier type more than once in a group. This assumption is also held by
+    Recipe.create_instance(...) method.
+
+    :param modifiers: A list of dictionaries where each dictionary
+        holds all information about a modifier
+    :return: A dictionary where the keys are the group names and the values
+        are the modifiers which in turn are dictionaries with the modifier
+        type as the key and the modifier args as the value.
+    """
+    stage_dict = {}
+    for modifier in modifiers:
+        group_name = f"{modifier['group']}_modifiers"
+        modifier_type = modifier["type"]
+        if group_name not in stage_dict:
+            stage_dict[group_name] = {}
+        stage_dict[group_name][modifier_type] = modifier["args"]
+    return stage_dict
