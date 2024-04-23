@@ -31,7 +31,6 @@ from compressed_tensors import (
     QuantizationConfig,
 )
 from compressed_tensors.quantization.utils import is_model_quantized
-from compressed_tensors import SPARSITY_CONFIG_NAME, CompressionConfig, ModelCompressor
 from sparseml.pytorch.utils import infer_global_sparsity, infer_sparsity_structure
 from sparseml.utils.pytorch import qat_active
 
