@@ -20,10 +20,10 @@ import torch
 from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
+from compressed_tensors import SPARSITY_CONFIG_NAME
+from compressed_tensors.config import BitmaskConfig, DenseSparsityConfig
+from sparseml.pytorch.utils import infer_global_sparsity, infer_sparsity_structure
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
-
-
-# TODO: additional dependencies on compressed-tensors
 
 
 @pytest.mark.parametrize(
@@ -65,9 +65,9 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         tmp_path / "oneshot_out", torch_dtype=dtype
     )
 
-    inferred_global_sparsity = SparsityConfigMetadata.infer_global_sparsity(model)
+    inferred_global_sparsity = infer_global_sparsity(model)
     assert math.isclose(inferred_global_sparsity, 19.6562, rel_tol=1e-3)
-    inferred_structure = SparsityConfigMetadata.infer_sparsity_structure()
+    inferred_structure = infer_sparsity_structure()
     assert inferred_structure == "0:0"
 
     model.save_pretrained(
@@ -112,9 +112,9 @@ def test_dense_model_save(tmp_path, skip_compression_stats, save_compressed):
     model_path = "Xenova/llama2.c-stories15M"
     model = SparseAutoModelForCausalLM.from_pretrained(model_path)
 
-    inferred_global_sparsity = SparsityConfigMetadata.infer_global_sparsity(model)
+    inferred_global_sparsity = infer_global_sparsity(model)
     assert math.isclose(inferred_global_sparsity, 0.0, rel_tol=1e-3)
-    inferred_structure = SparsityConfigMetadata.infer_sparsity_structure()
+    inferred_structure = infer_sparsity_structure()
     assert inferred_structure == "unstructured"
 
     model.save_pretrained(
