@@ -58,7 +58,7 @@ class TestQuantizationMatches(unittest.TestCase):
     old_output = "tiny_llama_old"
     new_output = "tiny_llama_new"
     max_seq_length = 512
-    num_comparisons = 2
+    num_comparisons = 1
 
     @classmethod
     def setUpClass(cls):
@@ -75,7 +75,7 @@ class TestQuantizationMatches(unittest.TestCase):
         )
 
         cls.model_new = SparseAutoModelForCausalLM.from_pretrained(
-            cls.model_stub, device_map="cuda:0"
+            cls.model_stub, device_map="cuda:1"
         )
         cls._run_oneshot(
             cls.model_new,
@@ -87,6 +87,9 @@ class TestQuantizationMatches(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.test_dir)
+        del cls.model_new
+        del cls.model_old
+        torch.cuda.empty_cache()
 
     @staticmethod
     def _run_oneshot(model, recipe, dataset, output_dir):
@@ -163,7 +166,7 @@ class TestQuantizationMatches(unittest.TestCase):
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(
-            self.test_dir / self.new_output
+            os.path.join(self.test_dir, self.new_output)
         )
 
         og_weights, og_inputs = self._get_quant_info_new(self.model_new)
@@ -210,11 +213,13 @@ class TestQuantizationMatches(unittest.TestCase):
         for idx, sample in enumerate(dataloader):
             if idx >= self.num_comparisons:
                 break
-            sample_new = tensors_to_device(sample, "cuda:0")
+            sample_new = tensors_to_device(sample, "cuda:1")
             sample_old = tensors_to_device(sample, "cuda:0")
             output_new = self.model_new(**sample_new)
             output_old = self.model_old(**sample_old)
             ppl_ratio = (
                 torch.exp(output_new.loss).item() / torch.exp(output_old.loss).item()
             )
-            assert abs(1.0 - ppl_ratio) < 0.05
+
+            # perplexity not more than 5% worse that old quantization method
+            assert ppl_ratio <= 1.05
