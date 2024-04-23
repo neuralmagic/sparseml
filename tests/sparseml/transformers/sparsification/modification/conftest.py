@@ -67,7 +67,7 @@ def distilbert_model():
 
 @pytest.fixture
 def mistral_model():
-    config = AutoConfig.from_pretrained("mistralai/Mistral-7B-v0.1")
+    config = AutoConfig.from_pretrained("NousResearch/Hermes-2-Pro-Mistral-7B")
     with init_empty_weights():
         model = AutoModel.from_config(config)
     return model
