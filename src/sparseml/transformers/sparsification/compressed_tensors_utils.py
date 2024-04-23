@@ -17,8 +17,9 @@ import logging
 import os
 import weakref
 from functools import wraps
-from typing import Optional
+from typing import Dict, Optional
 
+import torch
 from transformers import PreTrainedModel
 from transformers.file_utils import CONFIG_NAME
 
@@ -30,13 +31,49 @@ from compressed_tensors import (
     QuantizationConfig,
 )
 from compressed_tensors.quantization.utils import is_model_quantized
-from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
+from compressed_tensors import SPARSITY_CONFIG_NAME, CompressionConfig, ModelCompressor
+from sparseml.pytorch.utils import infer_global_sparsity, infer_sparsity_structure
 from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["modify_save_pretrained"]
+
+
+def infer_config_from_model(
+    model: torch.nn.Module,
+    state_dict: Optional[Dict[str, torch.Tensor]] = None,
+    compress: bool = False,
+) -> Optional["CompressionConfig"]:
+    """
+    Determines compression type and informational parameters for a given model
+
+    :param model: pytorch model to calculate sparsity config for
+    :param state_dict: optional state_dict to replace that in model, used for
+    gathering global FSDP model info
+    :param compress: whether or not to compress the model on disk
+    :return: compression config inferred from the model
+    """
+
+    global_sparsity = infer_global_sparsity(model, state_dict=state_dict)
+
+    if global_sparsity < 0.05:
+        # we do not consider model that have less then 0.05
+        # zero weights as sparse
+        return None
+
+    sparsity_structure = infer_sparsity_structure()
+    if compress:
+        format = "sparse_bitmask"
+    else:
+        format = "dense_sparsity"
+
+    return CompressionConfig.load_from_registry(
+        format,
+        global_sparsity=global_sparsity,
+        sparsity_structure=sparsity_structure,
+    )
 
 
 def modify_save_pretrained(model: PreTrainedModel):
@@ -109,9 +146,11 @@ def modify_save_pretrained(model: PreTrainedModel):
                 return
 
             if sparsity_config is not None:
-                SparsityConfigMetadata.fill_config_details(
-                    sparsity_config, model, state_dict=state_dict
+                sparsity_config.global_sparsity = infer_global_sparsity(
+                    model, state_dict=state_dict
                 )
+                sparsity_config.sparsity_structure = infer_sparsity_structure()
+
             elif not skip_compression_stats:
                 # try to infer a sparsity config from the model if none is provided
                 _LOGGER.info(
@@ -120,7 +159,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     "calculation of compression statistics set "
                     "skip_compression_stats=True"
                 )
-                sparsity_config = SparsityConfigMetadata.infer_config_from_model(
+                sparsity_config = infer_config_from_model(
                     model, state_dict=state_dict, compress=save_compressed
                 )
 
