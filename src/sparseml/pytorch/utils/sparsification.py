@@ -35,7 +35,6 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
-import sparseml.core.session as session_manager
 from sparseml.pytorch.utils.helpers import (
     get_prunable_layers,
     get_quantizable_layers,
@@ -47,48 +46,9 @@ from sparseml.pytorch.utils.helpers import (
 __all__ = [
     "ModuleSparsificationInfo",
     "GradSampler",
-    "infer_global_sparsity",
-    "infer_sparsity_structure",
 ]
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def infer_global_sparsity(
-    model: Module, state_dict: Optional[Dict[str, torch.Tensor]] = None
-) -> float:
-    """
-    Calculates the global percentage of sparse zero weights in the model
-    :param model: pytorch model to infer sparsity of
-    :param state_dict: optional state_dict to replace that in model, used for
-    gathering global FSDP model info
-    :return: global sparsity of model
-    """
-
-    info = ModuleSparsificationInfo(model, state_dict=state_dict)
-    global_sparsity = info.params_sparse_percent
-    return global_sparsity
-
-
-def infer_sparsity_structure() -> str:
-    """
-    Determines what sparsity structure, if any, was applied in the currently active
-    sparse session
-    :return: sparsity structure as a string
-    """
-    current_session = session_manager.active_session()
-    stage_modifiers = current_session.lifecycle.modifiers
-    sparsity_structure = "unstructured"
-
-    # check for applied pruning modifiers
-    for stage in stage_modifiers:
-        if stage.applied:
-            for modifier in stage.modifiers:
-                if hasattr(modifier, "mask_structure"):
-                    sparsity_structure = modifier.mask_structure
-                    break
-
-    return sparsity_structure
 
 
 class ModuleSparsificationInfo:
