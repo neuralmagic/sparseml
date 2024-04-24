@@ -17,7 +17,7 @@ from collections import Counter, defaultdict
 from typing import Any, Dict, Generator, Tuple, Union
 
 import torch.nn
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from sparseml.pytorch.utils.sparsification_info.helpers import (
     get_leaf_operations,
@@ -326,9 +326,7 @@ class SparsificationQuantization(SparsificationInfo):
         description="A dictionary that maps the name of a layer"
         "to the precision of that layer."
     )
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
     def from_module(
