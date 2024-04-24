@@ -16,10 +16,15 @@ from pathlib import Path
 
 import torch
 
-from clearml import Task
+try:
+    from clearml import Task
+
+except Exception as err:
+    clearml = None
+
 from sparseml.transformers import train
 
-
+@pytest.mark.skipif(clearml is None, reason="Test not supported on Windows")
 def test_finetune_wout_recipe(tmp_path: Path):
     recipe_str = None
     model = "Xenova/llama2.c-stories15M"
