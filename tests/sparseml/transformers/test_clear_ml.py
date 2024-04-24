@@ -24,7 +24,7 @@ except Exception as err:
 
 from sparseml.transformers import train
 
-@pytest.mark.skipif(clearml is None, reason="Test not supported on Windows")
+@pytest.mark.skipif(clearml is None, reason="clearML not installed")
 def test_finetune_wout_recipe(tmp_path: Path):
     recipe_str = None
     model = "Xenova/llama2.c-stories15M"
