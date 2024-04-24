@@ -188,6 +188,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         default=export_model,
     )
     apply_optimizations: Optional[Callable[[Any], None]] = Field(
+        None,
         description="A function that takes:"
         " - path to the exported model"
         " - names of the optimizations to apply"
@@ -223,6 +224,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     )
 
     deployment_directory_files_optional: Optional[List[str]] = Field(
+        None,
         description="A list that describes the "
         "optional expected files of the deployment directory",
     )

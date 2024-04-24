@@ -45,7 +45,7 @@ _deps = [
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
-    "pydantic>=1.8.2,<2.0.0",
+    "pydantic>=2.0.0,<2.8.0",
     "requests>=2.0.0",
     "scikit-learn>=0.24.2",
     "scipy<1.9.2,>=1.8; python_version <= '3.9'",
@@ -65,7 +65,7 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _clip_deps = ["open_clip_torch==2.20.0"]
-supported_torch_version = "torch>=1.7.0,<2.2"
+supported_torch_version = "torch>=1.7.0,<2.3"
 _pytorch_deps = [
     supported_torch_version,
     "gputils",
