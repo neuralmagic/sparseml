@@ -12,11 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# flake8: noqa
+from sparseml.transformers.finetune.session_mixin import SessionManagerMixIn
+from trl import SFTTrainer as TRLSFTTrainer
 
-from .data import DataTrainingArguments, TextGenerationDataset
-from .model_args import ModelArguments
-from .session_mixin import SessionManagerMixIn
-from .text_generation import apply, compress, eval, oneshot, train
-from .trainer import Trainer
-from .training_args import TrainingArguments
+
+__all__ = ["SFTTrainer"]
+
+
+class SFTTrainer(SessionManagerMixIn, TRLSFTTrainer):
+    def _prepare_dataset(self, dataset, *args, **kwargs):
+        if "input_ids" in dataset.column_names:
+            # dataset is already tokenized, skip preprocessing
+            return dataset
+
+        return super()._prepare_dataset(dataset, *args, **kwargs)

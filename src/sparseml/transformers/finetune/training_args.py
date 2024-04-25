@@ -32,10 +32,6 @@ class TrainingArguments(HFTrainingArgs):
         arguments
     """
 
-    best_model_after_epoch: int = field(
-        default=None,
-        metadata={"help": "Epoch after which best model will be saved."},
-    )
     recipe: Optional[str] = field(
         default=None,
         metadata={
