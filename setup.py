@@ -58,7 +58,7 @@ _deps = [
 ]
 _nm_deps = [
     f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}",
-    f"{'compressed-tensors' if is_release else 'compressed-tensors-nightly'}~={version_nm_deps}",  # noqa E501
+    "compressed-tensors",
 ]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
