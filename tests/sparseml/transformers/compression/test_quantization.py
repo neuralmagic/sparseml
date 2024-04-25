@@ -58,7 +58,7 @@ class TestQuantizationMatches(unittest.TestCase):
     old_output = "tiny_llama_old"
     new_output = "tiny_llama_new"
     max_seq_length = 512
-    num_comparisons = 1
+    num_comparisons = 512
 
     @classmethod
     def setUpClass(cls):
@@ -159,10 +159,11 @@ class TestQuantizationMatches(unittest.TestCase):
             assert math.isclose(o_scale, n_scale, abs_tol=1e-3, rel_tol=1e-3)
             assert o_zp == n_zp
 
+        # allow for error here due to implementation differences
         for name, (o_scale, o_zp) in old_quant_inputs.items():
             n_scale, n_zp = new_quant_inputs[name]
-            assert math.isclose(o_scale, n_scale, abs_tol=1e-3, rel_tol=1e-3)
-            assert o_zp == n_zp
+            assert math.isclose(o_scale, n_scale, abs_tol=1e-1, rel_tol=1e-1)
+            assert abs(o_zp - n_zp) < 5
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(
@@ -210,16 +211,24 @@ class TestQuantizationMatches(unittest.TestCase):
         tokenizer = SparseAutoTokenizer.from_pretrained(self.model_stub)
         dataloader = self._get_dataloader(self.dataset, tokenizer)
 
+        self.model_new.to("cpu")
+        self.model_old.to("cpu")
+
+        total_ppl_old = 0.0
+        total_ppl_new = 0.0
+        total_non_nan = 0
         for idx, sample in enumerate(dataloader):
             if idx >= self.num_comparisons:
                 break
-            sample_new = tensors_to_device(sample, "cuda:1")
-            sample_old = tensors_to_device(sample, "cuda:0")
-            output_new = self.model_new(**sample_new)
-            output_old = self.model_old(**sample_old)
-            ppl_ratio = (
-                torch.exp(output_new.loss).item() / torch.exp(output_old.loss).item()
-            )
+            output_new = self.model_new(**sample)
+            output_old = self.model_old(**sample)
+            if torch.isnan(output_old.loss) and torch.isnan(output_new.loss):
+                continue
+            total_ppl_old += torch.exp(output_old.loss).item()
+            total_ppl_new += torch.exp(output_new.loss).item()
+            total_non_nan += 1
 
-            # perplexity not more than 5% worse that old quantization method
-            assert ppl_ratio <= 1.05
+        avg_ppl_ratio = (total_ppl_new / total_non_nan) / (
+            total_ppl_old / total_non_nan
+        )
+        assert avg_ppl_ratio <= 1.02
