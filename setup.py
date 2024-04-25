@@ -56,10 +56,7 @@ _deps = [
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
-_nm_deps = [
-    f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}",
-    "compressed-tensors",
-]
+_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
     f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
 ]
@@ -90,6 +87,7 @@ _transformers_deps = _pytorch_deps + [
     "evaluate>=0.4.1",
     "accelerate>=0.20.3",
     "safetensors>=0.4.1",
+    "compressed-tensors",
 ]
 _llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
