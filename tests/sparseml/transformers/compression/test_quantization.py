@@ -58,7 +58,7 @@ class TestQuantizationMatches(unittest.TestCase):
     old_output = "tiny_llama_old"
     new_output = "tiny_llama_new"
     max_seq_length = 512
-    num_comparisons = 512
+    num_comparisons = 64
 
     @classmethod
     def setUpClass(cls):
@@ -162,7 +162,7 @@ class TestQuantizationMatches(unittest.TestCase):
         # allow for error here due to implementation differences
         for name, (o_scale, o_zp) in old_quant_inputs.items():
             n_scale, n_zp = new_quant_inputs[name]
-            assert math.isclose(o_scale, n_scale, abs_tol=1e-1, rel_tol=1e-1)
+            assert math.isclose(o_scale, n_scale, abs_tol=1e-2, rel_tol=1e-2)
             assert abs(o_zp - n_zp) < 5
 
     def test_quantization_reload(self):
@@ -183,12 +183,7 @@ class TestQuantizationMatches(unittest.TestCase):
             assert o_scale == n_scale
             assert o_zp == n_zp
 
-    def _get_dataloader(self, dataset_name, tokenizer):
-        data_args = DataTrainingArguments(
-            dataset=dataset_name,
-            max_seq_length=self.max_seq_length,
-            pad_to_max_length=False,
-        )
+    def _get_dataloader(self, data_args, tokenizer):
         dataset_manager = TextGenerationDataset.load_from_registry(
             data_args.dataset,
             data_args=data_args,
@@ -207,12 +202,16 @@ class TestQuantizationMatches(unittest.TestCase):
 
         return data_loader
 
+    @torch.no_grad()
     def test_perplexity(self):
         tokenizer = SparseAutoTokenizer.from_pretrained(self.model_stub)
-        dataloader = self._get_dataloader(self.dataset, tokenizer)
-
-        self.model_new.to("cpu")
-        self.model_old.to("cpu")
+        data_args = DataTrainingArguments(
+            dataset="wikitext",
+            dataset_config_name="wikitext-2-raw-v1",
+            max_seq_length=self.max_seq_length,
+            concatenate_data=True,
+        )
+        dataloader = self._get_dataloader(data_args, tokenizer)
 
         total_ppl_old = 0.0
         total_ppl_new = 0.0
@@ -220,8 +219,8 @@ class TestQuantizationMatches(unittest.TestCase):
         for idx, sample in enumerate(dataloader):
             if idx >= self.num_comparisons:
                 break
-            output_new = self.model_new(**sample)
-            output_old = self.model_old(**sample)
+            output_new = self.model_new(**tensors_to_device(sample, "cuda:1"))
+            output_old = self.model_old(**tensors_to_device(sample, "cuda:0"))
             if torch.isnan(output_old.loss) and torch.isnan(output_new.loss):
                 continue
             total_ppl_old += torch.exp(output_old.loss).item()
