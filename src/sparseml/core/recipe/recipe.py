@@ -580,15 +580,23 @@ class Recipe(RecipeBase):
         # populate stages
         stages = original_recipe_dict["stages"]
         for stage_name, stage_list in stages.items():
-            # stage is always a list of size 1
-            stage = stage_list[0]
-            stage_dict = get_yaml_serializable_stage_dict(modifiers=stage["modifiers"])
+            for idx, stage in enumerate(stage_list):
+                if len(stage_list) > 1:
+                    # resolve name clashes caused by combining recipes with
+                    # duplicate stage names
+                    final_stage_name = f"{stage_name}_{idx}"
+                else:
+                    final_stage_name = stage_name
+                stage_dict = get_yaml_serializable_stage_dict(
+                    modifiers=stage["modifiers"]
+                )
 
-            # infer run_type from stage
-            if run_type := stage.get("run_type"):
-                stage_dict["run_type"] = run_type
+                # infer run_type from stage
+                if run_type := stage.get("run_type"):
+                    stage_dict["run_type"] = run_type
 
-            yaml_recipe_dict[stage_name] = stage_dict
+                yaml_recipe_dict[final_stage_name] = stage_dict
+
         return yaml_recipe_dict
 
 
