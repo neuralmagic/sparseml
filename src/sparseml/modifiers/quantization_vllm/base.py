@@ -43,14 +43,12 @@ class vLLMQuantizationModifier(Modifier):
         not be updated. Leave None to not disable observers during QAT. Default is None
     :param num_calibration_steps: Number of steps to run post training calibration for.
         When None, the entire calibration_dataloader is used
-    :param post_oneshot_calibration: Whether to rerun calibration on finalization
     """
 
     config_groups: Dict[str, QuantizationScheme]
     ignore: List[str] = Field(default_factory=list)
     disable_quantization_observer_epoch: Optional[float] = None
     num_calibration_steps: Optional[int] = None
-    post_oneshot_calibration: Optional[bool] = False
 
     def create_init_config(self) -> QuantizationConfig:
         return QuantizationConfig(

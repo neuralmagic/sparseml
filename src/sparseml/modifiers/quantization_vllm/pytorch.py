@@ -74,11 +74,6 @@ class vLLMQuantizationModifierPyTorch(vLLMQuantizationModifier):
         return True
 
     def on_finalize(self, state: State, **kwargs) -> bool:
-        module = state.model.model
-        if self.post_oneshot_calibration:
-            module.apply(set_module_for_calibration)
-            self._calibrate_if_possible(module)
-        module.apply(freeze_module_quantization)
         return True
 
     def on_start(self, state: State, event: Event, **kwargs):
