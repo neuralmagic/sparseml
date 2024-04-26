@@ -68,7 +68,7 @@ class SparsityConfigMetadata:
         return sparsity_structure
 
     @staticmethod
-    def infer_config_from_model(
+    def from_pretrained(
         model: Module,
         state_dict: Optional[Dict[str, Tensor]] = None,
         compress: bool = False,

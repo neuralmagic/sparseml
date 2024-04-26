@@ -30,7 +30,7 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
-from compressed_tensors.compressors import infer_compressor_from_model_config
+from compressed_tensors.compressors import ModelCompressor
 from compressed_tensors.quantization import (
     QuantizationConfig,
     apply_quantization_config,
@@ -108,7 +108,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         )
 
         # determine compression format, if any, from the model config
-        compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
+        compressor = ModelCompressor.from_pretrained(pretrained_model_name_or_path)
         quantization_config = QuantizationConfig.from_model_config(
             pretrained_model_name_or_path
         )

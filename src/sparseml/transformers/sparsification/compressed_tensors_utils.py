@@ -140,7 +140,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     "calculation of compression statistics set "
                     "skip_compression_stats=True"
                 )
-                sparsity_config = SparsityConfigMetadata.infer_config_from_model(
+                sparsity_config = SparsityConfigMetadata.from_pretrained(
                     model, state_dict=state_dict, compress=save_compressed
                 )
 
