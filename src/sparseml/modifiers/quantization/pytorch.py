@@ -82,6 +82,8 @@ class QuantizationModifierPyTorch(QuantizationModifier):
 
     def on_initialize(self, state: State, **kwargs) -> bool:
         raise_if_torch_quantization_not_available()
+        module = state.model.model
+        module = modify_model(module)
         if self.end and self.end != -1:
             raise ValueError(
                 "end_epoch is disabled for QuantizationModifier and can only be set to"
