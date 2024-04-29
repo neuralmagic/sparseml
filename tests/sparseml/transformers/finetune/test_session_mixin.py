@@ -27,7 +27,6 @@ class MixInTest(SessionManagerMixIn, Trainer):
     def __init__(
         self,
         model: Module,
-        model_state_path: str,
         recipe: Optional[str],
         recipe_args: Optional[Union[Dict[str, Any], str]] = None,
         teacher: Optional[Union[Module, str]] = None,
@@ -35,7 +34,6 @@ class MixInTest(SessionManagerMixIn, Trainer):
     ):
         super().__init__(
             model=model,
-            model_state_path=model_state_path,
             recipe=recipe,
             recipe_args=recipe_args,
             teacher=teacher,
@@ -48,9 +46,7 @@ def test_mixin_init():
     model = AutoModelForCausalLM.from_pretrained(model_state_path)
     recipe = "tests/sparseml/transformers/finetune/test_quantization.yaml"
 
-    session_mixin = MixInTest(
-        model=model, model_state_path=model_state_path, recipe=recipe
-    )
+    session_mixin = MixInTest(model=model, recipe=recipe)
     assert isinstance(session_mixin, SessionManagerMixIn)
     assert isinstance(session_mixin, Trainer)
     assert session_mixin.recipe == recipe
@@ -67,7 +63,6 @@ def mixin_trainer():
 
     return MixInTest(
         model=model,
-        model_state_path=model_state_path,
         recipe=recipe,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,

@@ -16,8 +16,6 @@
 from dataclasses import dataclass
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar
 
-from pydantic import Field
-
 from sparseml.core import Modifier
 from sparseml.core.model import ModifiableModel
 from sparseml.core.model.base import LT
@@ -98,7 +96,7 @@ class SmoothQuantModifier(Modifier):
      use the whole dataset
     """
 
-    smoothing_strength: float = Field(validation_alias="alpha", default=0.5)
+    smoothing_strength: float = 0.5
     mappings: List[Tuple]
     ignore: Optional[List[str]] = None
     num_calibration_steps: Optional[int] = None
