@@ -45,8 +45,39 @@ class TestOBCQCompletion(unittest.TestCase):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.output = "./oneshot_output"
 
+    def labeled_dataloader(self, dataset_name, model_name):
+        from sparseml.transformers import SparseAutoTokenizer
+        from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
+        from sparseml.transformers.finetune.data import TextGenerationDataset
+        from torch.utils.data import DataLoader
+        from transformers import DefaultDataCollator
+
+        tokenizer = SparseAutoTokenizer.from_pretrained(model_name)
+        data_args = DataTrainingArguments(
+            dataset=dataset_name,
+            max_seq_length=512,
+            pad_to_max_length=False,
+        )
+        dataset_manager = TextGenerationDataset.load_from_registry(
+            data_args.dataset,
+            data_args=data_args,
+            split="train",
+            tokenizer=tokenizer,
+        )
+        calib_dataset = dataset_manager.tokenize_and_process(
+            dataset_manager.get_raw_dataset()
+        )
+        data_loader = DataLoader(
+            calib_dataset, batch_size=1, collate_fn=DefaultDataCollator()
+        )
+
+        return data_loader
+
     def test_oneshot_completion(self):
         from sparseml.transformers import oneshot
+        from sparseml.pytorch.model_load.helpers import get_session_model
+        from sparseml.pytorch.utils import tensors_to_device
+        import torch
 
         oneshot(
             model=self.model,
@@ -57,7 +88,25 @@ class TestOBCQCompletion(unittest.TestCase):
             num_calibration_samples=32,
             pad_to_max_length=False,
             output_dir=self.output,
+            clear_sparse_session=False
         )
+
+        first_tiny_model = get_session_model()
+
+        dataset = "open_platypus"
+        
+        iter = 10
+        dataloader = self.labeled_dataloader(dataset, self.model)
+        total_new_ppl = 0.0
+        for idx, sample in enumerate(dataloader):
+            if idx >= iter:
+                break
+            new_output = first_tiny_model(**(tensors_to_device(sample, "cuda:0")))
+            new_ppl = torch.exp(new_output.loss)
+            total_new_ppl += new_ppl
+
+        avg_new_ppl = total_new_ppl / iter
+        print(f"Avg Perplexity: new {avg_new_ppl}")
 
     def tearDown(self):
         shutil.rmtree(self.output)
