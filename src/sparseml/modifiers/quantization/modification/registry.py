@@ -11,21 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from copy import deepcopy
-
-from torch import nn
-
-from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.sparsification.modification.modification_objects import (
-    QATLinear,
-)
+from sparsezoo.utils.registry import RegistryMixin
 
 
-def test_modifying_mobilebert(mobilebert_model):
-
-    mobilebert_ = deepcopy(mobilebert_model)
-    mobilebert = modify_model(mobilebert_model)
-
-    assert isinstance(mobilebert_.embeddings.embedding_transformation, nn.Linear)
-    assert isinstance(mobilebert.embeddings.embedding_transformation, QATLinear)
+class ModificationRegistry(RegistryMixin):
+    """
+    A registry for modification functions that can be applied to models
+    so that they can be compatible with the quantization format required by the
+    SparseML library.
+    """

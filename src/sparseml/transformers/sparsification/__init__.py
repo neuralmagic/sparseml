@@ -19,6 +19,7 @@ Hugging Face transformers flows
 
 # flake8: noqa
 
+from .modification import *
 from .question_answering import *
 from .sparse_config import *
 from .sparse_model import *
