@@ -107,11 +107,8 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, **kwargs
         )
 
-        # determine compression format, if any, from the model config
+        # instantiate compressor from model config
         compressor = ModelCompressor.from_pretrained(pretrained_model_name_or_path)
-        quantization_config = QuantizationConfig.from_model_config(
-            pretrained_model_name_or_path
-        )
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
@@ -126,27 +123,15 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
 
+        if compressor.quantization_config is not None:
+            # apply structural changes from quantization
+            apply_quantization_config(model, compressor.quantization_config)
+            load_pretrained_quantization(model, pretrained_model_name_or_path)
+
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
             # decompress weights
-            compressor.overwrite_weights(
-                model_path=pretrained_model_name_or_path, model=model
-            )
-
-        if quantization_config is not None:
-            # if we loaded from a HF stub, find the cached model
-            apply_quantization_config(model, quantization_config)
-            load_pretrained_quantization(model, pretrained_model_name_or_path)
-        else:
-            recipe = resolve_recipe(
-                recipe=recipe, model_path=pretrained_model_name_or_path
-            )
-            if recipe:
-                apply_recipe_structure_to_model(
-                    model=model,
-                    model_path=pretrained_model_name_or_path,
-                    recipe_path=recipe,
-                )
+            compressor.decompress(model_path=pretrained_model_name_or_path, model=model)
 
         return model
 

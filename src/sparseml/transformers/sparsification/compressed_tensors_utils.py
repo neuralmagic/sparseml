@@ -83,44 +83,6 @@ def modify_save_pretrained(model: PreTrainedModel):
             # state_dict gets passed in as a kwarg for FSDP models
             state_dict = kwargs.get("state_dict", None)
 
-            # check if we are in the old quantization framework
-            if qat_active(model) and not is_model_quantized(model):
-                _LOGGER.info(
-                    "Compression for models quantized with QuantizationModifer is not "
-                    "supported. Save will be run without compression and no sparsity "
-                    "statistics will be calculated. To save a quantized model in a "
-                    "compressed state please use vLLMQuantizationModifier instead."
-                )
-
-                original_save_pretrained.__get__(model, model_class)(
-                    save_directory, **kwargs
-                )
-
-                return
-
-            elif qat_active(model):  # quantized in new framework
-                _LOGGER.info(
-                    "Sparsity compression for quantized models is not yet supported. "
-                    "No sparsity statistics will be calculated and no sparsity config "
-                    "will be saved."
-                )
-
-                original_save_pretrained.__get__(model, model_class)(
-                    save_directory, **kwargs
-                )
-
-                quant_config = QuantizationConfig.from_pretrained(model)
-                quant_config_data = quant_config.model_dump(exclude_unset=True)
-                config_file_path = os.path.join(save_directory, CONFIG_NAME)
-
-                # add the sparsity config to the model's config file
-                with open(config_file_path, "r") as config_file:
-                    config_data = json.load(config_file)
-                config_data[QUANTIZATION_CONFIG_NAME] = quant_config_data
-                with open(config_file_path, "w") as config_file:
-                    json.dump(config_data, config_file, indent=2, sort_keys=True)
-
-                return
 
             if sparsity_config is not None:
                 sparsity_config.global_sparsity = (
@@ -131,7 +93,6 @@ def modify_save_pretrained(model: PreTrainedModel):
                 sparsity_config.sparsity_structure = (
                     SparsityConfigMetadata.infer_sparsity_structure()
                 )
-
             elif not skip_compression_stats:
                 # try to infer a sparsity config from the model if none is provided
                 _LOGGER.info(
@@ -144,38 +105,27 @@ def modify_save_pretrained(model: PreTrainedModel):
                     model, state_dict=state_dict, compress=save_compressed
                 )
 
-            if sparsity_config is None:
-                # model is not sparse, save as dense
+            compressor = ModelCompressor.from_pretrained_model(model, sparsity_config=sparsity_config)
+            if compressor is None:
+                # model is not compressed or quantized, save as normal
                 return original_save_pretrained.__get__(model, model_class)(
                     save_directory, **kwargs
                 )
 
             # if we've gotten to this point we have a config so we can run compression
             kwargs["safe_serialization"] = True
-            compressor = ModelCompressor.load_from_registry(
-                sparsity_config.format, config=sparsity_config
-            )
-
             if state_dict is None:
                 state_dict = model.state_dict()
 
             # make sure we're on the main process when saving
             if state_dict is not None and len(state_dict) > 0:
-                compressed_state_dict = compressor.compress(state_dict)
+                compressed_state_dict = compressor.compress(model, state_dict)
                 kwargs["state_dict"] = compressed_state_dict
 
                 original_save_pretrained.__get__(model, model_class)(
                     save_directory, **kwargs
                 )
-                sparsity_config_data = sparsity_config.dict()
-                config_file_path = os.path.join(save_directory, CONFIG_NAME)
-
-                # add the sparsity config to the model's config file
-                with open(config_file_path, "r") as config_file:
-                    config_data = json.load(config_file)
-                config_data[SPARSITY_CONFIG_NAME] = sparsity_config_data
-                with open(config_file_path, "w") as config_file:
-                    json.dump(config_data, config_file, indent=2, sort_keys=True)
+                compressor.update_config(save_directory)
 
         save_pretrained_wrapper._overriden = True
         return save_pretrained_wrapper
