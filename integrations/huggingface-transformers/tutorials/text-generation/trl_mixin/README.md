@@ -30,17 +30,17 @@ class SFTTrainer(SessionManagerMixIn, TRLSFTTrainer):
 
 The new `SFTTrainer` class can now apply SparseML recipes and modifiers during 
 supervised finetuning, will full support for all of the original TRL features. The full
-class is defined in [sft_trainer.py](sft_trainer.py) and requires very minimal 
+class is defined in the script `sft_trainer.py` and requires very minimal 
 additional code: just a dataset load override to support passing in tokenized datasets 
 to the Trainer. 
 
 ### Examples
 
-[ex_trl_sft_data.py](ex_trl_sft_data.py): finetunes a 50% sparse Llama-7b model,
+* Script `ex_trl_sft_data.py`: finetunes a 50% sparse Llama-7b model,
 using TRL's dataset preprocessing. Sparsity is maintained throughout training by 
 applying a `ConstantPruningModifier` recipe to the `SFTTrainer` 
 
-[ex_trl_distillation.py](ex_trl_distillation.py): finetunes a 50% sparse Llama-7b 
+* Script `ex_trl_distillation.py`: finetunes a 50% sparse Llama-7b 
 model using knowledge distillation from a dense Llama-7b model. Sparsity is maintained 
 throughout training with a `ConstantPruningModifier` and layer-wise knowledge 
 distillation is handled by the `OutputDistillationModifier`
