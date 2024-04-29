@@ -32,19 +32,15 @@ from transformers.file_utils import WEIGHTS_NAME
 
 from compressed_tensors.compressors import ModelCompressor
 from compressed_tensors.quantization import (
-    QuantizationConfig,
     apply_quantization_config,
     load_pretrained_quantization,
 )
-from sparseml.pytorch.model_load.helpers import (
-    apply_recipe_structure_to_model,
-    log_model_load,
-)
+from sparseml.pytorch.model_load.helpers import log_model_load
 from sparseml.transformers.sparsification.compressed_tensors_utils import (
     modify_save_pretrained,
 )
 from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
+from sparseml.transformers.utils.helpers import download_model_directory
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]

@@ -12,26 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
-import os
 import weakref
 from functools import wraps
 from typing import Optional
 
 from transformers import PreTrainedModel
-from transformers.file_utils import CONFIG_NAME
 
-from compressed_tensors import (
-    QUANTIZATION_CONFIG_NAME,
-    SPARSITY_CONFIG_NAME,
-    CompressionConfig,
-    ModelCompressor,
-    QuantizationConfig,
-)
-from compressed_tensors.quantization.utils import is_model_quantized
+from compressed_tensors import CompressionConfig, ModelCompressor
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
-from sparseml.utils.pytorch import qat_active
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,7 +72,6 @@ def modify_save_pretrained(model: PreTrainedModel):
             # state_dict gets passed in as a kwarg for FSDP models
             state_dict = kwargs.get("state_dict", None)
 
-
             if sparsity_config is not None:
                 sparsity_config.global_sparsity = (
                     SparsityConfigMetadata.infer_global_sparsity(
@@ -105,7 +93,9 @@ def modify_save_pretrained(model: PreTrainedModel):
                     model, state_dict=state_dict, compress=save_compressed
                 )
 
-            compressor = ModelCompressor.from_pretrained_model(model, sparsity_config=sparsity_config)
+            compressor = ModelCompressor.from_pretrained_model(
+                model, sparsity_config=sparsity_config
+            )
             if compressor is None:
                 # model is not compressed or quantized, save as normal
                 return original_save_pretrained.__get__(model, model_class)(
