@@ -20,7 +20,7 @@ import torch
 from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
-from compressed_tensors import SPARSITY_CONFIG_NAME
+from compressed_tensors import COMPRESSION_CONFIG_NAME, SPARSITY_CONFIG_NAME
 from compressed_tensors.config import BitmaskConfig, DenseSparsityConfig
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
@@ -59,6 +59,7 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         splits=splits,
         oneshot_device=device,
         precision=dtype,
+        clear_sparse_session=False,
     )
 
     model = SparseAutoModelForCausalLM.from_pretrained(
@@ -77,7 +78,8 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     )
 
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
-    sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
+    compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
+    sparsity_config = compression_config.get(SPARSITY_CONFIG_NAME, None)
     assert (
         sparsity_config["format"] == "dense"
         if (not compressed and config is None)

@@ -119,13 +119,13 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
 
-        if compressor.quantization_config is not None:
-            # apply structural changes from quantization
-            apply_quantization_config(model, compressor.quantization_config)
-            load_pretrained_quantization(model, pretrained_model_name_or_path)
-
         # If model is compressed on disk, decompress and load the weights
         if compressor is not None:
+            if compressor.quantization_config is not None:
+                # apply structural changes from quantization
+                apply_quantization_config(model, compressor.quantization_config)
+                load_pretrained_quantization(model, pretrained_model_name_or_path)
+
             # decompress weights
             compressor.decompress(model_path=pretrained_model_name_or_path, model=model)
 

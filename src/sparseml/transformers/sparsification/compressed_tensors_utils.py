@@ -19,7 +19,7 @@ from typing import Optional
 
 from transformers import PreTrainedModel
 
-from compressed_tensors import CompressionConfig, ModelCompressor
+from compressed_tensors import ModelCompressor, SparsityCompressionConfig
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 
 
@@ -49,7 +49,7 @@ def modify_save_pretrained(model: PreTrainedModel):
         @wraps(original_save_pretrained)
         def save_pretrained_wrapper(
             save_directory: str,
-            sparsity_config: Optional[CompressionConfig] = None,
+            sparsity_config: Optional[SparsityCompressionConfig] = None,
             save_compressed: bool = False,
             skip_compression_stats: bool = False,
             **kwargs,

@@ -18,13 +18,13 @@ from torch import Tensor
 from torch.nn import Module
 
 import sparseml.core.session as session_manager
-from compressed_tensors import CompressionConfig
+from compressed_tensors import CompressionFormat, SparsityCompressionConfig
 from sparseml.pytorch.utils import ModuleSparsificationInfo
 
 
 class SparsityConfigMetadata:
     """
-    Class of helper functions for filling out a CompressionConfig with readable
+    Class of helper functions for filling out a SparsityCompressionConfig with readable
     metadata from the model
     """
 
@@ -72,7 +72,7 @@ class SparsityConfigMetadata:
         model: Module,
         state_dict: Optional[Dict[str, Tensor]] = None,
         compress: bool = False,
-    ) -> Optional["CompressionConfig"]:
+    ) -> Optional["SparsityCompressionConfig"]:
         """
         Determines compression type and informational parameters for a given model
 
@@ -92,11 +92,11 @@ class SparsityConfigMetadata:
 
         sparsity_structure = SparsityConfigMetadata.infer_sparsity_structure()
         if compress:
-            format = "sparse_bitmask"
+            format = CompressionFormat.sparse_bitmask.value
         else:
-            format = "dense_sparsity"
+            format = CompressionFormat.dense.value
 
-        return CompressionConfig.load_from_registry(
+        return SparsityCompressionConfig.load_from_registry(
             format,
             global_sparsity=global_sparsity,
             sparsity_structure=sparsity_structure,
@@ -104,7 +104,7 @@ class SparsityConfigMetadata:
 
     @staticmethod
     def fill_config_details(
-        config: CompressionConfig,
+        config: SparsityCompressionConfig,
         model: Module,
         state_dict: Optional[Dict[str, Tensor]] = None,
     ):
