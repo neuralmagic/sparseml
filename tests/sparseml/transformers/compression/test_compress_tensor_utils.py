@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import math
 import shutil
 
@@ -20,8 +21,13 @@ import torch
 from transformers import AutoConfig
 
 import sparseml.core.session as session_manager
-from compressed_tensors import COMPRESSION_CONFIG_NAME, SPARSITY_CONFIG_NAME
+from compressed_tensors import (
+    COMPRESSION_CONFIG_NAME,
+    QUANTIZATION_CONFIG_NAME,
+    SPARSITY_CONFIG_NAME,
+)
 from compressed_tensors.config import BitmaskConfig, DenseSparsityConfig
+from compressed_tensors.quantization import QuantizationStatus
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 
@@ -129,5 +135,81 @@ def test_dense_model_save(tmp_path, skip_compression_stats, save_compressed):
     config = AutoConfig.from_pretrained(tmp_path / "dense_out")
     sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
     assert sparsity_config is None
+
+    shutil.rmtree(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "compressed,status,dtype",
+    [
+        [True, "dense", torch.float32],
+        [True, "dense", torch.float16],
+        [True, "int_quantized", torch.float32],
+        # [True, "int_quantized", torch.float16],
+    ],
+)
+def test_quant_model_reload(compressed, status, dtype, tmp_path):
+    recipe_str = "tests/sparseml/transformers/compression/recipes/new_quant_simple.yaml"
+    model_path = "Xenova/llama2.c-stories15M"
+    device = "cuda:0"
+    if not torch.cuda.is_available():
+        device = "cpu"
+    dataset = "open_platypus"
+    concatenate_data = False
+    num_calibration_samples = 64
+    output_dir = tmp_path / "oneshot_out"
+    splits = {"calibration": "train[:10%]"}
+
+    # create a quantized model
+    oneshot(
+        model=model_path,
+        dataset=dataset,
+        output_dir=output_dir,
+        num_calibration_samples=num_calibration_samples,
+        recipe=recipe_str,
+        concatenate_data=concatenate_data,
+        splits=splits,
+        oneshot_device=device,
+        precision=dtype,
+    )
+
+    model = SparseAutoModelForCausalLM.from_pretrained(
+        tmp_path / "oneshot_out", torch_dtype=dtype
+    )
+
+    for _, module in model.named_modules():
+        if hasattr(module, "quantization_scheme"):
+            assert module.weight.dtype == dtype
+            assert module.quantization_status == QuantizationStatus.FROZEN
+
+    model_og = copy.deepcopy(model)
+    model.save_pretrained(
+        tmp_path / "compress_out",
+        quantization_compression=status,
+        save_compressed=compressed,
+    )
+
+    config = AutoConfig.from_pretrained(tmp_path / "compress_out")
+    compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
+    quant_config = compression_config.get(QUANTIZATION_CONFIG_NAME, None)
+    assert quant_config["format"] == status
+
+    dense_model = SparseAutoModelForCausalLM.from_pretrained(
+        tmp_path / "compress_out", torch_dtype="auto"
+    )
+
+    og_state_dict = model_og.state_dict()
+    reconstructed_state_dict = dense_model.state_dict()
+    assert len(og_state_dict) == len(reconstructed_state_dict)
+    for key in og_state_dict.keys():
+        dense_tensor = og_state_dict[key]
+        reconstructed_tensor = reconstructed_state_dict[key]
+        assert dense_tensor.dtype == reconstructed_tensor.dtype
+        if key.endswith("weight") and status != "dense":
+            # we don't expect an exact match for compressed
+            diff = torch.abs(dense_tensor - reconstructed_tensor)
+            assert not torch.any(diff > 0.01).item()
+        else:
+            assert torch.equal(dense_tensor, reconstructed_tensor)
 
     shutil.rmtree(tmp_path)

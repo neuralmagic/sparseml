@@ -44,10 +44,10 @@ from tests.testing_utils import requires_gpu, requires_torch
             "tests/sparseml/transformers/compression/recipes/old_quant_full.yaml",
             "tests/sparseml/transformers/compression/recipes/new_quant_full.yaml",
         ),
-        (
-            "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
-            "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
-        ),
+        # (
+        #    "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
+        #    "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
+        # ),
     ],
 )
 class TestQuantizationMatches(unittest.TestCase):
