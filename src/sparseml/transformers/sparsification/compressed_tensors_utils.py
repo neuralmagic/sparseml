@@ -50,7 +50,7 @@ def modify_save_pretrained(model: PreTrainedModel):
         def save_pretrained_wrapper(
             save_directory: str,
             sparsity_config: Optional[SparsityCompressionConfig] = None,
-            quantization_compression: str = None,
+            quantization_format: str = None,
             save_compressed: bool = False,
             skip_compression_stats: bool = False,
             **kwargs,
@@ -63,6 +63,8 @@ def modify_save_pretrained(model: PreTrainedModel):
             :param save_directory: output directory to save model to
             :param sparsity_config: optional sparsity config to compress model with,
             if no config is provided it will be inferred from the model
+            :param quantization_format: optional compression format for quantized
+            models. If none is provided it will be inferred from the model
             :param save_compresed: whether or not to compress the model on disk
             :param skip_compression_stats: whether to skip the calculation of
             compression statistics (such as global sparsity and sparsity structure) when
@@ -97,7 +99,7 @@ def modify_save_pretrained(model: PreTrainedModel):
             compressor = ModelCompressor.from_pretrained_model(
                 model,
                 sparsity_config=sparsity_config,
-                quantization_compression=quantization_compression,
+                quantization_format=quantization_format,
             )
             if compressor is None:
                 # model is not compressed or quantized, save as normal
