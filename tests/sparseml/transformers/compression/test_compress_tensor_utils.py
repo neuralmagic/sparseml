@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import math
 import shutil
 
@@ -187,7 +186,6 @@ def test_quant_model_reload(format, dtype, tmp_path):
             assert module.weight.dtype == dtype
             assert module.quantization_status == QuantizationStatus.FROZEN
 
-    model_og = copy.deepcopy(model)
     model.save_pretrained(
         tmp_path / "compress_out",
         quantization_format=format,
@@ -203,7 +201,7 @@ def test_quant_model_reload(format, dtype, tmp_path):
         tmp_path / "compress_out", torch_dtype="auto"
     )
 
-    og_state_dict = model_og.state_dict()
+    og_state_dict = model.state_dict()
     reconstructed_state_dict = dense_model.state_dict()
     assert len(og_state_dict) == len(reconstructed_state_dict)
     for key in og_state_dict.keys():
