@@ -21,6 +21,9 @@ from transformers import PreTrainedModel
 
 from compressed_tensors import ModelCompressor, SparsityCompressionConfig
 from compressed_tensors.quantization.utils import is_model_quantized
+from sparseml.transformers.compression.quantization_format import (
+    infer_quantization_format,
+)
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 from sparseml.utils.pytorch import qat_active
 
@@ -113,6 +116,11 @@ def modify_save_pretrained(model: PreTrainedModel):
                     model, state_dict=state_dict, compress=save_compressed
                 )
 
+            quantization_format = infer_quantization_format(
+                model=model,
+                quantization_format=quantization_format,
+                save_compressed=save_compressed,
+            )
             compressor = ModelCompressor.from_pretrained_model(
                 model,
                 sparsity_config=sparsity_config,
