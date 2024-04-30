@@ -14,10 +14,9 @@
 
 """
 Modification to the original DistilBert model required in the
-context of SparseML
+context of SparseML quantization
 """
 
-import logging
 import math
 from typing import Optional, Tuple
 
@@ -28,56 +27,49 @@ from transformers.models.distilbert.modeling_distilbert import (
     MultiHeadSelfAttention,
 )
 
+from sparseml.modifiers.quantization.modification.modification_objects import QATMatMul
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
-    QATMatMul,
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
 )
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @ModificationRegistry.register(name="DistilBertModel")
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the DistilBert model to be compatible with SparseML
+    quantization
 
-    1. Replaces the MultiHeadSelfAttention modules with
-        MultiHeadSelfAttentionWithQuantizableMatmuls modules
-
-    Note: This function will not alter any of the alternatives
-    to the MultiHeadSelfAttention module such as DistilBertFlashAttention2
+    Replaces the attention modules with
+    MultiHeadSelfAttentionWithQuantizableMatmuls modules
 
     :param model: the original DistilBert model
     :return: the modified DistilBert model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
-        if isinstance(submodule, MultiHeadSelfAttention):
+        if isinstance(
+            submodule, (MultiHeadSelfAttention, DistilBertFlashAttention2)
+        ) and not isinstance(submodule, MultiHeadSelfAttentionWithQuantizableMatmuls):
             swap_modules(
                 model, name, MultiHeadSelfAttentionWithQuantizableMatmuls(submodule)
-            )
-        if isinstance(submodule, DistilBertFlashAttention2):
-            _LOGGER.debug(
-                f"The model contains {submodule.__class__.__name__} "
-                "module, which will not be modified"
             )
     return model
 
 
 class MultiHeadSelfAttentionWithQuantizableMatmuls(MultiHeadSelfAttention):
     """
-    Wrapper around the original MultiHeadSelfAttention module to replace the
-    matmul operations with quantizable matmul operations
+    Wrapper around the original attention module to introduce
+    MultiHeadSelfAttention  with quantizable matmul operations
 
-    :param mhs_attention: the original MultiHeadSelfAttention module
+    :param mhs_attention: the original attention module to be
+        wrapped and modified
     """
 
     def __init__(self, mhs_attention: MultiHeadSelfAttention):
         self.__class__ = type(
-            mhs_attention.__class__.__name__,
+            self.__class__.__name__,
             (self.__class__, mhs_attention.__class__),
             {},
         )
