@@ -31,12 +31,15 @@ from transformers import (
 from transformers.file_utils import WEIGHTS_NAME
 
 from compressed_tensors.compressors import ModelCompressor
-from sparseml.pytorch.model_load.helpers import log_model_load
+from sparseml.pytorch.model_load.helpers import (
+    apply_recipe_structure_to_model,
+    log_model_load,
+)
 from sparseml.transformers.sparsification.compressed_tensors_utils import (
     modify_save_pretrained,
 )
 from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.utils.helpers import download_model_directory
+from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -115,10 +118,23 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
 
-        # If model is compressed on disk, decompress and load the weights
+        # If model is quantized or compressed on disk, initialize quantization
+        # structure and run decompression
         if compressor is not None:
-            # decompress weights
+            # initialize quantization and decompress weights
+            # TODO: should we move the quantize logic out of compress?
             compressor.decompress(model_path=pretrained_model_name_or_path, model=model)
+        else:
+            # legacy loading for old quantization modifier
+            recipe = resolve_recipe(
+                recipe=recipe, model_path=pretrained_model_name_or_path
+            )
+            if recipe:
+                apply_recipe_structure_to_model(
+                    model=model,
+                    model_path=pretrained_model_name_or_path,
+                    recipe_path=recipe,
+                )
 
         return model
 
