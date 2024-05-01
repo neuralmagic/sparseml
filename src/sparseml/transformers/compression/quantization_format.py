@@ -44,4 +44,5 @@ def infer_quantization_format(
     if save_compressed:
         return CompressionFormat.int_quantized
     else:
-        return CompressionFormat.dense
+        # format will be inferred from config
+        return None

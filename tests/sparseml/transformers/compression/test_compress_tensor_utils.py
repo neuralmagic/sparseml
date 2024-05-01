@@ -260,10 +260,7 @@ def test_quant_infer_format(status, expected_format, expected_dtype, tmp_path):
         if hasattr(module, "quantization_scheme"):
             assert module.quantization_status == status
 
-    model.save_pretrained(
-        tmp_path / "compress_out",
-        save_compressed=True,
-    )
+    model.save_pretrained(tmp_path / "compress_out")
 
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
     compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
