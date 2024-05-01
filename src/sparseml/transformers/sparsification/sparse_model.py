@@ -36,6 +36,7 @@ from compressed_tensors.quantization import (
     apply_quantization_config,
     load_pretrained_quantization,
 )
+from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
@@ -151,8 +152,6 @@ class SparseAutoModel:
     """
     Factory class for creating sparse models using transformers AutoModel classes
     """
-
-    from sparseml.modifiers.quantization.modification import modify_model
 
     @staticmethod
     def masked_language_modeling_from_pretrained(

@@ -122,7 +122,6 @@ def modify_save_pretrained(model: PreTrainedModel):
 
                 return
 
-
             if sparsity_config is not None:
                 sparsity_config.global_sparsity = (
                     SparsityConfigMetadata.infer_global_sparsity(
