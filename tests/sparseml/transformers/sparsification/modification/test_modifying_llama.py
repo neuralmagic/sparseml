@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import pytest
-from transformers.models.llama.modeling_llama import LlamaAttention
 
-from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
-from sparseml.transformers.sparsification.modification import modify_model
+from sparseml.transformers.sparsification.modification.modifying_llama import (
+    LlamaAttentionWithQuantizableMatmuls,
+)
 
 
 @pytest.fixture
@@ -39,31 +39,22 @@ def llama_recipe():
             symmetric: False"""
 
 
-def test_modifying_llama(llama_model, shared_helper_functions):
-
-    shared_helper_functions.check_model_modified(
+def test_modify_with_quantization_recipe(
+    llama_model, llama_recipe, shared_helper_functions
+):
+    shared_helper_functions.check_model_modified_causal(
         llama_model,
-        module_to_replace=LlamaAttention,
-        func_to_validate_replacement=_is_llama_attention_modified,
+        recipe=llama_recipe,
+        modified_module=LlamaAttentionWithQuantizableMatmuls,
     )
 
 
-def test_apply_recipe_fail(llama_recipe, llama_zoo_model):
-
-    with pytest.raises(Exception):
-        apply_recipe_structure_to_model(
-            model=llama_zoo_model, model_path=None, recipe_path=llama_recipe
-        )
-
-
-def test_apply_recipe(llama_recipe, llama_zoo_model):
-    apply_recipe_structure_to_model(
-        model=modify_model(llama_zoo_model), model_path=None, recipe_path=llama_recipe
+def test_modify_with_quantization_recipe_sparsezoo(
+    llama_zoo_model, llama_recipe, shared_helper_functions
+):
+    # TODO: Improve that
+    shared_helper_functions.check_model_modified_causal(
+        llama_zoo_model,
+        recipe=llama_recipe,
+        modified_module=LlamaAttentionWithQuantizableMatmuls,
     )
-    assert True
-
-
-def _is_llama_attention_modified(module):
-    # only the modified "LlamaAttention"
-    # modules have the "attn_output_matmul" attribute
-    return hasattr(module, "attn_output_matmul")

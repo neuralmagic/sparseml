@@ -11,17 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# flake8: noqa
-# isort:skip_file
-
-# the modification module that adds modifications
-# for transformers models to enable quantization
-
-# import all the modification functions for the different models
-from .modifying_bert import modify
-from .modifying_llama import modify
-from .modifying_mistral import modify
-from .modifying_distilbert import modify
-from .modifying_mobilebert import modify
-from .modifying_opt import modify

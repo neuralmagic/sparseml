@@ -17,10 +17,8 @@ from copy import copy
 
 import pytest
 
-from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
+from sparseml.modifiers.quantization.modification import modify_model
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparsezoo.utils.registry import _ALIAS_REGISTRY, _REGISTRY, standardize_lookup_name
 
 
@@ -88,7 +86,7 @@ def test_disable_modify_model_through_env_var(monkeypatch, model, test_registry)
         return model
 
     is_modified = copy(model.modified)
-    monkeypatch.setenv("NM_DISABLE_TRANSFORMERS_MODIFICATION", "1")
+    monkeypatch.setenv("NM_DISABLE_QUANTIZATION_MODIFICATION", "1")
     model = modify_model(model)
     assert model.modified == is_modified == False  # noqa E712
     monkeypatch.undo()
