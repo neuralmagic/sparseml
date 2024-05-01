@@ -14,7 +14,7 @@
 
 """
 Set of helper objects that are used to modify
-the HuggingFace transformer models
+the quantized models
 """
 
 import torch

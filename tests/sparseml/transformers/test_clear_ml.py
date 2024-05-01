@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from pathlib import Path
 
 import pytest
@@ -20,13 +19,15 @@ import torch
 
 try:
     from clearml import Task
+
+    is_clearml = True
 except Exception:
-    clearml = None
+    is_clearml = False
 
 from sparseml.transformers import train
 
 
-@pytest.mark.skipif(clearml is None, reason="clearML not installed")
+@pytest.mark.skipif(not is_clearml, reason="clearML not installed")
 def test_finetune_wout_recipe(tmp_path: Path):
     recipe_str = None
     model = "Xenova/llama2.c-stories15M"

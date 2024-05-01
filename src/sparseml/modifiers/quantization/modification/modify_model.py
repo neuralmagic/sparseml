@@ -15,31 +15,34 @@
 import logging
 import os
 
-import torch
-
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Module:
+def modify_model(
+    model: "torch.nn.Module", disable: bool = False  # noqa: F821
+) -> "torch.nn.Module":  # noqa: F821
     """
-    Modify the original transformers model so that it is
-    compatible with the SparseML library.
+    Modify the original model so that it is
+    compatible with the quantization format required by the
+    SparseML library.
+
     The model will be modified, if there exist a modification
     function for the model in the registry of modifications.
     Otherwise, the original model will be returned.
 
-    :param model: The original HuggingFace transformers model
-    :return: The potentially modified model
+    :param model: The original model to be modified
+    :param disable: If True, the modification will be disabled
+    :return: The potentially modified model to support
+        SparseML quantization
     """
     model_name = model.__class__.__name__
-    NM_DISABLE_TRANSFORMERS_MODIFICATION = os.environ.get(
-        "NM_DISABLE_TRANSFORMERS_MODIFICATION", "False"
+    NM_DISABLE_QUANTIZATION_MODIFICATION = os.environ.get(
+        "NM_DISABLE_QUANTIZATION_MODIFICATION", "False"
     ).lower() in ["true", "1"]
+
     try:
         modification_func = ModificationRegistry.get_value_from_registry(model_name)
     except KeyError:
@@ -50,7 +53,7 @@ def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Modul
         )
         return model
 
-    if NM_DISABLE_TRANSFORMERS_MODIFICATION:
+    if NM_DISABLE_QUANTIZATION_MODIFICATION:
         _LOGGER.debug(
             "Application of the modification function to model "
             "disabled through the environment variable."
@@ -65,6 +68,6 @@ def modify_model(model: torch.nn.Module, disable: int = False) -> torch.nn.Modul
         return model
 
     _LOGGER.info(
-        f"Modifying the model {model_name} to be compatible with SparseML library"
+        f"Modifying the model {model_name} to be compatible with SparseML quantization"
     )
     return modification_func(model)

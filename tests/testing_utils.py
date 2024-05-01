@@ -17,6 +17,7 @@ import enum
 import logging
 import os
 import unittest
+from subprocess import PIPE, STDOUT, run
 from typing import List, Optional, Union
 
 import yaml
@@ -107,3 +108,14 @@ def parse_params(
                 f"Skipping testing model: {file} for cadence: {config['cadence']}"
             )
     return config_dicts
+
+
+def run_cli_command(cmd: List[str]):
+    """
+    Run a cli command and return the response. The cli command is launched through a new
+    subprocess.
+
+    :param cmd: cli command provided as a list of arguments where each argument
+        should be a string
+    """
+    return run(cmd, stdout=PIPE, stderr=STDOUT, check=False, encoding="utf-8")
