@@ -12,39 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import unittest
 
 import pytest
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
+from sparseml.modifiers.smoothquant.base import SmoothQuantModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
-from tests.testing_utils import requires_torch
 
 
 @pytest.mark.unit
-@requires_torch
-class TestWandaPytorchIsRegistered(unittest.TestCase):
+class TestSmoothQuantIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(
-            sparsity=0.5,
-            targets="__ALL_PRUNABLE__",
+            smoothing_strength=0.3,
+            mappings=[(["layer1", "layer2"], "layer3")],
         )
         setup_modifier_factory()
 
-    def test_wanda_pytorch_is_registered(self):
-        from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
-
-        type_ = ModifierFactory.create(
-            type_="WandaPruningModifier",
-            framework=Framework.pytorch,
+    def test_smooth_quant_is_registered(self):
+        modifier = ModifierFactory.create(
+            type_="SmoothQuantModifier",
+            framework=Framework.general,
             allow_experimental=False,
             allow_registered=True,
             **self.kwargs,
         )
 
         self.assertIsInstance(
-            type_,
-            WandaPruningModifierPyTorch,
-            "PyTorch ConstantPruningModifier not registered",
+            modifier,
+            SmoothQuantModifier,
+            "PyTorch SmoothQuant not registered",
         )
+
+        self.assertEqual(modifier.smoothing_strength, self.kwargs["smoothing_strength"])
+        self.assertEqual(modifier.mappings, self.kwargs["mappings"])

@@ -25,6 +25,9 @@ from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
 from sparseml.pytorch.model_load.helpers import get_session_model
 from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
+from sparseml.transformers.sparsification.modification.modifying_llama import (
+    LlamaAttentionWithQuantizableMatmuls,
+)
 
 
 @pytest.mark.parametrize(
@@ -35,20 +38,36 @@ from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
         "tests/sparseml/transformers/obcq/quant_and_sparse.yaml",
     ],
 )
-def test_obcq_tinystories(recipe_file_path):
+def test_obcq_tinystories(tmp_path, recipe_file_path):
     tiny_model_path = "Xenova/llama2.c-stories15M"
-    device = "cuda:0"
-    if not torch.cuda.is_available():
-        device = "cpu"
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    model = SparseAutoModelForCausalLM.from_pretrained(
+        tiny_model_path, device_map=device
+    )
 
     oneshot(
-        model=tiny_model_path,
+        model=model,
         dataset="open_platypus",
         oneshot_device=device,
         recipe=recipe_file_path,
         max_seq_length=128,
         num_calibration_samples=64,
         pad_to_max_length=False,
+        output_dir=tmp_path / "temp_output",
+    )
+
+    is_model_quantized = "quant" in recipe_file_path
+    # if quantization recipe has been applied to the model,
+    # assert that the attention modules
+    # (6 of them for the tested tiny llama model),
+    # have been swapped for LlamaAttentionWithQuantizableMatmuls
+    assert is_model_quantized == (
+        sum(
+            module.__class__.__name__
+            == LlamaAttentionWithQuantizableMatmuls.__name__  # noqa E501
+            for module in model.modules()
+        )
+        == 6
     )
 
 
@@ -88,6 +107,8 @@ def test_lm_head_target():
     layers_no_head = len(sparsegpt_modifier_no_head.compressible_layers_)
     layers_head = len(sparsegpt_modifier_head.compressible_layers_)
     assert layers_head == layers_no_head + 1
+
+    # check that the
 
 
 def test_sparsities():

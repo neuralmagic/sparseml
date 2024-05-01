@@ -14,68 +14,59 @@
 
 """
 Modification to the original Bert model required in the
-context of SparseML
+context of SparseML quantization
 """
 
 
-import logging
 import math
 from typing import Optional, Tuple
 
 import torch
 from torch import nn
-from transformers.models.bert.modeling_bert import BertAttention, BertSelfAttention
+from transformers.models.bert.modeling_bert import BertSelfAttention
 
+from sparseml.modifiers.quantization.modification.modification_objects import QATMatMul
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
-    QATMatMul,
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
 )
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @ModificationRegistry.register(name="BertModel", alias=["BertForQuestionAnswering"])
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the Bert model to be compatible with SparseML
+    quantization
 
-    1. Replaces the MultiHeadSelfAttention modules with
-        MultiHeadSelfAttentionWithQuantizableMatmuls modules
-
-    Note: This function will not alter any of the alternatives
-    to the MultiHeadSelfAttention module such as BertAttention
-
+    Replaces the attention modules with
+    MultiHeadSelfAttentionWithQuantizableMatmuls modules
     :param model: the original Bert model
     :return: the modified Bert model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
-        if isinstance(submodule, BertSelfAttention):
+        if isinstance(submodule, BertSelfAttention) and not isinstance(
+            submodule, BertSelfAttentionWithQuantizableMatmuls
+        ):
             swap_modules(
                 model, name, BertSelfAttentionWithQuantizableMatmuls(submodule)
-            )
-        elif isinstance(submodule, BertAttention):
-            _LOGGER.debug(
-                f"The model contains {submodule.__class__.__name__} "
-                "module, which will not be modified"
             )
     return model
 
 
 class BertSelfAttentionWithQuantizableMatmuls(BertSelfAttention):
     """
-    Wrapper around the original BertSelfAttention module to replace the
+    Wrapper around the original attention module to replace the
     matmul operations with quantizable matmul operations
 
-    :param bert_self_attention: the original BertSelfAttention module
+    :param bert_self_attention: the original attention module to be
+        wrapped and modified
     """
 
     def __init__(self, bert_self_attention: BertSelfAttention):
         self.__class__ = type(
-            bert_self_attention.__class__.__name__,
+            self.__class__.__name__,
             (self.__class__, bert_self_attention.__class__),
             {},
         )

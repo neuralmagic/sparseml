@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import unittest
+
 import pytest
 
+from parameterized import parameterized
 from sparseml.core import State
 from sparseml.core.event import Event, EventType
 from sparseml.core.factory import ModifierFactory
@@ -30,6 +33,94 @@ from tests.sparseml.pytorch.sparsification.quantization.test_modifier_quantizati
     _test_qat_wrapped_module,
     _test_quantized_module,
 )
+from tests.testing_utils import requires_torch
+
+
+@pytest.mark.unit
+@requires_torch
+class TestQuantizationRegistered(unittest.TestCase):
+    def setUp(self):
+        setup_modifier_factory()
+        self.kwargs = dict(index=0, group="quantization", start=2.0, end=-1.0)
+
+    def test_quantization_registered(self):
+        quant_obj = ModifierFactory.create(
+            type_="QuantizationModifier",
+            framework=Framework.pytorch,
+            allow_experimental=False,
+            allow_registered=True,
+            **self.kwargs,
+        )
+
+        self.assertIsInstance(quant_obj, QuantizationModifierPyTorch)
+
+
+@pytest.mark.unit
+@requires_torch
+class TestQuantizationOneShot(unittest.TestCase):
+    def setUp(self):
+        scheme = dict(
+            input_activations=dict(num_bits=8, symmetric=True),
+            weights=dict(num_bits=4, symmetric=False, strategy="channel"),
+        )
+        self.kwargs = dict(scheme=scheme)
+
+    @parameterized.expand([[ConvNet], [LinearNet]])
+    def test_quantization_oneshot(self, model_class):
+        model = model_class()
+        state = State(framework=Framework.pytorch, start_event=Event())
+        state.update(model=model, start=-1)
+
+        modifier = QuantizationModifierPyTorch(**self.kwargs)
+
+        modifier.initialize(state)
+
+        # for one-shot, we set up quantization on initialization
+        _test_qat_applied(modifier, model)
+
+        # we shouldn't keep updating stats after one-shot
+        assert modifier.quantization_observer_disabled_
+
+        test_start_event = Event(type_=EventType.BATCH_START)
+        test_end_event = Event(type_=EventType.BATCH_END)
+        assert not modifier.should_start(test_start_event)
+        assert not modifier.should_end(test_end_event)
+
+        modifier.finalize(state)
+        assert modifier.finalized
+
+
+@pytest.mark.unit
+@requires_torch
+class TestQuantizationTraining(unittest.TestCase):
+    def setUp(self):
+        self.start_epoch = 2
+
+        self.kwargs = dict(
+            start=self.start_epoch,
+            scheme=dict(
+                input_activations=dict(num_bits=8, symmetric=True),
+                weights=dict(num_bits=4, symmetric=False),
+            ),
+        )
+
+    @parameterized.expand([[ConvNet], [LinearNet]])
+    def test_quantization_training(self, model_class):
+        model = model_class()
+
+        modifier = QuantizationModifierPyTorch(**self.kwargs)
+
+        testing_harness = LifecyleTestingHarness(model=model)
+        modifier.initialize(testing_harness.get_state())
+        assert not modifier.qat_enabled_
+
+        testing_harness.trigger_modifier_for_epochs(modifier, self.start_epoch)
+        assert not modifier.qat_enabled_
+        testing_harness.trigger_modifier_for_epochs(modifier, self.start_epoch + 1)
+        _test_qat_applied(modifier, model)
+
+        modifier.finalize(testing_harness.get_state())
+        assert modifier.quantization_observer_disabled_
 
 
 def _test_qat_applied(modifier, model):
@@ -67,77 +158,3 @@ def _test_qat_applied(modifier, model):
             # check all non-target modules are not quantized
             assert not hasattr(module, "quantization_scheme")
             assert not hasattr(module, "qconfig")
-
-
-def test_quantization_registered():
-    setup_modifier_factory()
-
-    kwargs = dict(index=0, group="quantization", start=2.0, end=-1.0)
-    quant_obj = ModifierFactory.create(
-        type_="QuantizationModifier",
-        framework=Framework.pytorch,
-        allow_experimental=False,
-        allow_registered=True,
-        **kwargs,
-    )
-
-    assert isinstance(quant_obj, QuantizationModifierPyTorch)
-
-
-@pytest.mark.parametrize("model_class", [ConvNet, LinearNet])
-def test_quantization_oneshot(model_class):
-    model = model_class()
-    state = State(framework=Framework.pytorch, start_event=Event())
-    state.update(model=model, start=-1)
-
-    scheme = dict(
-        input_activations=dict(num_bits=8, symmetric=True),
-        weights=dict(num_bits=4, symmetric=False, strategy="channel"),
-    )
-    kwargs = dict(scheme=scheme)
-
-    modifier = QuantizationModifierPyTorch(**kwargs)
-
-    modifier.initialize(state)
-
-    # for one-shot, we set up quantization on initialization
-    _test_qat_applied(modifier, model)
-
-    # we shouldn't keep updating stats after one-shot
-    assert modifier.quantization_observer_disabled_
-
-    test_start_event = Event(type_=EventType.BATCH_START)
-    test_end_event = Event(type_=EventType.BATCH_END)
-    assert not modifier.should_start(test_start_event)
-    assert not modifier.should_end(test_end_event)
-
-    modifier.finalize(state)
-    assert modifier.finalized
-
-
-@pytest.mark.parametrize("model_class", [ConvNet, LinearNet])
-def test_quantization_training(model_class):
-    start_epoch = 2
-
-    model = model_class()
-    kwargs = dict(
-        start=start_epoch,
-        scheme=dict(
-            input_activations=dict(num_bits=8, symmetric=True),
-            weights=dict(num_bits=4, symmetric=False),
-        ),
-    )
-
-    modifier = QuantizationModifierPyTorch(**kwargs)
-
-    testing_harness = LifecyleTestingHarness(model=model)
-    modifier.initialize(testing_harness.get_state())
-    assert not modifier.qat_enabled_
-
-    testing_harness.trigger_modifier_for_epochs(modifier, start_epoch)
-    assert not modifier.qat_enabled_
-    testing_harness.trigger_modifier_for_epochs(modifier, start_epoch + 1)
-    _test_qat_applied(modifier, model)
-
-    modifier.finalize(testing_harness.get_state())
-    assert modifier.quantization_observer_disabled_

@@ -36,6 +36,7 @@ from compressed_tensors.quantization import (
     apply_quantization_config,
     load_pretrained_quantization,
 )
+from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
@@ -43,7 +44,6 @@ from sparseml.pytorch.model_load.helpers import (
 from sparseml.transformers.sparsification.compressed_tensors_utils import (
     modify_save_pretrained,
 )
-from sparseml.transformers.sparsification.modification import modify_model
 from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
 
@@ -63,11 +63,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
        of the model will be retrieved
     2. The original model definition will be loaded, without
         the model weights
-    3. The model will be potentially modifier by `modify_model`
-        function, so that is compatible with SparseML
-    4. The appropriate recipy will be applied to the model
+    3. The appropriate recipy will be applied to the model
        if requested or required
-    5. The appropriate set of weights will be loaded into the model
+    4. The appropriate set of weights will be loaded into the model
     """
 
     @classmethod
@@ -122,7 +120,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, *model_args, **kwargs
         )
         logger.setLevel(level=restore_log_level)
-        model = modify_model(model)
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
 

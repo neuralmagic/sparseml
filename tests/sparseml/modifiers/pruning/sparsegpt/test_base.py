@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import unittest
 
 import pytest
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
+from sparseml.modifiers.obcq.base import SparseGPTModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
-from tests.testing_utils import requires_torch
 
 
 @pytest.mark.unit
-@requires_torch
-class TestWandaPytorchIsRegistered(unittest.TestCase):
+class TestSparseGPTIsRegistered(unittest.TestCase):
     def setUp(self):
         self.kwargs = dict(
             sparsity=0.5,
@@ -32,12 +32,10 @@ class TestWandaPytorchIsRegistered(unittest.TestCase):
         )
         setup_modifier_factory()
 
-    def test_wanda_pytorch_is_registered(self):
-        from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
-
+    def test_wanda_is_registered(self):
         type_ = ModifierFactory.create(
-            type_="WandaPruningModifier",
-            framework=Framework.pytorch,
+            type_="SparseGPTModifier",
+            framework=Framework.general,
             allow_experimental=False,
             allow_registered=True,
             **self.kwargs,
@@ -45,6 +43,6 @@ class TestWandaPytorchIsRegistered(unittest.TestCase):
 
         self.assertIsInstance(
             type_,
-            WandaPruningModifierPyTorch,
-            "PyTorch ConstantPruningModifier not registered",
+            SparseGPTModifier,
+            "PyTorch SparseGPTModifier not registered",
         )

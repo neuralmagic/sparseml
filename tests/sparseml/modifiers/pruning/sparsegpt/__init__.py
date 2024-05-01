@@ -11,21 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
-from transformers.models.bert.modeling_bert import BertSelfAttention
-
-
-def test_modifying_bert(bert_model, shared_helper_functions):
-
-    shared_helper_functions.check_model_modified(
-        bert_model,
-        module_to_replace=BertSelfAttention,
-        func_to_validate_replacement=_is_bert_attention_modified,
-    )
-
-
-def _is_bert_attention_modified(module):
-    # only the modified "BertSelfAttention" modules have the
-    # modules have the "attention_scores_matmul" attribute
-    return hasattr(module, "attention_scores_matmul")
