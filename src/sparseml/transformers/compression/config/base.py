@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from torch import Tensor
 from torch.nn import Module
 
-import sparseml.core.session as session_manager
+from sparseml import active_session
 from sparseml.pytorch.utils import ModuleSparsificationInfo
 from sparsezoo.utils.registry import RegistryMixin
 
@@ -65,7 +65,7 @@ class CompressionConfig(RegistryMixin, BaseModel):
 
         :return: sparsity structure as a string
         """
-        current_session = session_manager.active_session()
+        current_session = active_session()
         stage_modifiers = current_session.lifecycle.modifiers
         sparsity_structure = "unstructured"
 

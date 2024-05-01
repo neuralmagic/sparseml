@@ -19,7 +19,7 @@ import pytest
 import torch
 from transformers import AutoConfig
 
-import sparseml.core.session as session_manager
+from sparseml import reset_session
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression import (
     BitmaskConfig,
@@ -110,7 +110,7 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     [[True, True], [True, False], [False, True], [False, False]],
 )
 def test_dense_model_save(tmp_path, skip_compression_stats, save_compressed):
-    session_manager.active_session().reset()
+    reset_session()
 
     model_path = "Xenova/llama2.c-stories15M"
     model = SparseAutoModelForCausalLM.from_pretrained(model_path)

@@ -22,7 +22,7 @@ import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
-import sparseml.core.session as session_manager
+from sparseml import active_session
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
@@ -302,7 +302,7 @@ class StageRunner:
                 save_completed_stages(self._output_dir, completed_stages)
 
             # setup for next stage
-            session = session_manager.active_session()
+            session = active_session()
             session.reset_stage()
 
             # synchronize and clean up memory

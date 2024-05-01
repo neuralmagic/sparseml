@@ -30,6 +30,7 @@ __all__ = [
     "SparseSession",
     "create_session",
     "active_session",
+    "reset_session",
     "pre_initialize_structure",
     "initialize",
     "finalize",
@@ -380,12 +381,33 @@ def create_session() -> SparseSession:
         _local_storage.session = orig_session
 
 
+@contextmanager
+def session_context_manager():
+    """
+    A context manager to setup a fresh session and reset it after the context
+    is exited.
+    """
+
+    reset_session()
+    yield
+    # reset the session after each context
+    reset_session()
+
+
 def active_session() -> SparseSession:
     """
     :return: the active session for sparsification
     """
     global _local_storage
     return getattr(_local_storage, "session", _global_session)
+
+
+def reset_session():
+    """
+    Reset the currently active session to its initial state
+    """
+    session = active_session()
+    session._lifecycle.reset()
 
 
 def pre_initialize_structure(**kwargs):

@@ -19,7 +19,7 @@ from datasets import load_dataset
 from torch.nn import Module
 from transformers import AutoModelForCausalLM, Trainer
 
-import sparseml.core.session as session_manager
+from sparseml import active_session
 from sparseml.transformers.finetune.session_mixin import SessionManagerMixIn
 
 
@@ -71,7 +71,7 @@ def mixin_trainer():
 
 def test_mixin_session_init(mixin_trainer):
     mixin_trainer.initialize_session(epoch=0.0, checkpoint=None)
-    session = session_manager.active_session()
+    session = active_session()
 
     assert not session.lifecycle.initialized_structure
     assert session.lifecycle.initialized_

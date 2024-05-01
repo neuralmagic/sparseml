@@ -15,7 +15,7 @@
 
 from typing import Optional
 
-from sparseml.core.utils import session_context_manager
+from sparseml.core.session import session_context_manager
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparsezoo.evaluation.results import Result
 

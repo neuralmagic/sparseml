@@ -30,6 +30,7 @@ from .base import (
     detect_framework,
     execute_in_sparseml_framework,
 )
+from .core import *
 from .framework import (
     FrameworkInferenceProviderInfo,
     FrameworkInfo,

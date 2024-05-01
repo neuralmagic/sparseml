@@ -25,7 +25,7 @@ import datasets
 import transformers
 from transformers import AutoConfig, DefaultDataCollator, HfArgumentParser, set_seed
 
-import sparseml.core.session as session_manager
+from sparseml import pre_initialize_structure, reset_session
 from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
@@ -300,7 +300,7 @@ def main(
     if isinstance(tokenizer, str) or tokenizer is None:
         tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
 
-    session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
+    pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # intialize session manager
     apply_recipe_structure_to_model(model, None, model_path)
@@ -363,7 +363,7 @@ def main(
 
     # Clean up the SparseSession before exit if requested
     if training_args.clear_sparse_session:
-        session_manager.active_session().reset()
+        reset_session()
 
 
 if __name__ == "__main__":

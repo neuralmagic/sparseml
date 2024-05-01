@@ -16,8 +16,8 @@ import shutil
 
 import pytest
 
-import sparseml.core.session as session_manager
 from huggingface_hub import snapshot_download
+from sparseml import create_session, reset_session
 from sparseml.transformers import SparseAutoModelForCausalLM
 
 
@@ -48,8 +48,8 @@ def test_silu_alias_same_output(recipe, model_path):
     model_ = SparseAutoModelForCausalLM.from_pretrained(
         model_path, recipe=recipe.format(silu_activation="SiLU")
     )
-    session_manager.create_session()
-    session_manager.active_session().reset()
+    create_session()
+    reset_session()
     model = SparseAutoModelForCausalLM.from_pretrained(
         model_path, recipe=recipe.format(silu_activation="SiLUActivation")
     )

@@ -14,15 +14,17 @@
 
 from pathlib import Path
 
+import pytest
 import torch
+
 
 try:
     from clearml import Task
-
-except Exception as err:
+except Exception:
     clearml = None
 
 from sparseml.transformers import train
+
 
 @pytest.mark.skipif(clearml is None, reason="clearML not installed")
 def test_finetune_wout_recipe(tmp_path: Path):

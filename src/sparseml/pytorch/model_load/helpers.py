@@ -21,8 +21,8 @@ from typing import Any, Dict, List, Optional
 import torch
 from torch.nn import Module
 
-import sparseml.core.session as session_manager
 from safetensors import safe_open
+from sparseml import active_session, create_session, pre_initialize_structure
 from sparseml.core.framework import Framework
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -101,9 +101,9 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     orig_state_dict = model.state_dict()
 
     # apply structural changes to the model
-    if not session_manager.active_session():
-        session_manager.create_session()
-    session_manager.pre_initialize_structure(
+    if not active_session():
+        create_session()
+    pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
 
@@ -111,7 +111,7 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     if recipe_path is None:
         return
 
-    session = session_manager.active_session()
+    session = active_session()
     num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
     msg = (
         "an unstaged recipe"
@@ -260,7 +260,7 @@ def save_model_and_recipe(
     _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
 
     recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
-    session = session_manager.active_session()
+    session = active_session()
     recipe_yaml_str = session.get_serialized_recipe()
     with open(recipe_path, "w") as fp:
         fp.write(recipe_yaml_str)
@@ -303,7 +303,7 @@ def get_session_model() -> Module:
     :return: pytorch module stored by the active SparseSession, or None if no session
     is active
     """
-    session = session_manager.active_session()
+    session = active_session()
     if not session:
         return None
 
