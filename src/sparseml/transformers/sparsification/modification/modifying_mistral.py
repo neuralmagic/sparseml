@@ -14,12 +14,12 @@
 
 """
 Modification to the original Mistral model required in the
-context of SparseML
+context of SparseML quantization
 """
-import logging
+
 import math
 import warnings
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -32,42 +32,35 @@ from transformers.models.mistral.modeling_mistral import (
     repeat_kv,
 )
 
-from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
+from sparseml.modifiers.quantization.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,
 )
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.pytorch.utils.helpers import swap_modules
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
 )
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @ModificationRegistry.register(name="MistralModel", alias=["MistralForCausalLM"])
 def modify(model: torch.nn.Module) -> torch.nn.Module:
     """
     Modify the Mistral model to be compatible with SparseML
+    quantization
 
-    1. Replaces the MistralAttention modules with
-        MistralAttentionWithQuantizableMatmuls modules
-
-    Note: This function will not alter any of the alternatives
-    to the MistralAttention module such as MistralFlashAttention2
-    or MistralSdpaAttention
+    Replaces the attention modules with
+    MistralAttentionWithQuantizableMatmuls modules
 
     :param model: the original Mistral model
     :return: the modified Mistral model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
-        if isinstance(submodule, MistralAttention):
+        if isinstance(
+            submodule, (MistralAttention, MistralFlashAttention2, MistralSdpaAttention)
+        ) and not isinstance(submodule, MistralAttentionWithQuantizableMatmuls):
             swap_modules(model, name, MistralAttentionWithQuantizableMatmuls(submodule))
-        if isinstance(submodule, (MistralSdpaAttention, MistralFlashAttention2)):
-            _LOGGER.debug(
-                f"The model contains {submodule.__class__.__name__} "
-                "module, which will not be modified"
-            )
     return model
 
 
@@ -89,16 +82,22 @@ class MatMulRightInput_PV(QuantizableIdentity):
 
 class MistralAttentionWithQuantizableMatmuls(MistralAttention):
     """
-    Wrapper around the original MistralAttention module to replace the
-    matmul operations with quantizable matmul operations
+    Wrapper around the original attention module to introduce
+    MistralAttention with quantizable matmul operations
 
-    :param mistral_attention: the original MistralAttention module
+    :param mistral_attention: the original attention module to be
+        wrapped and modified
 
     """
 
-    def __init__(self, mistral_attention: MistralAttention):
+    def __init__(
+        self,
+        mistral_attention: Union[
+            MistralAttention, MistralFlashAttention2, MistralSdpaAttention
+        ],
+    ):
         self.__class__ = type(
-            mistral_attention.__class__.__name__,
+            self.__class__.__name__,
             (self.__class__, mistral_attention.__class__),
             {},
         )
