@@ -381,19 +381,6 @@ def create_session() -> SparseSession:
         _local_storage.session = orig_session
 
 
-@contextmanager
-def session_context_manager():
-    """
-    A context manager to setup a fresh session and reset it after the context
-    is exited.
-    """
-
-    reset_session()
-    yield
-    # reset the session after each context
-    reset_session()
-
-
 def active_session() -> SparseSession:
     """
     :return: the active session for sparsification
