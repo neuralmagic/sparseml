@@ -14,31 +14,19 @@
 
 from typing import Dict, Optional
 
-from pydantic import BaseModel
 from torch import Tensor
 from torch.nn import Module
 
 import sparseml.core.session as session_manager
+from compressed_tensors import CompressionConfig
 from sparseml.pytorch.utils import ModuleSparsificationInfo
-from sparsezoo.utils.registry import RegistryMixin
 
 
-__all__ = ["CompressionConfig"]
-
-
-class CompressionConfig(RegistryMixin, BaseModel):
+class SparsityConfigMetadata:
     """
-    Base data class for storing compression parameters
-
-    :param format: name of compression format
-    :param global_sparsity: average sparsity of the entire model
-    :param sparsity_structure: structure of the sparsity, such as
-    "unstructured", "2:4", "8:16" etc
+    Class of helper functions for filling out a CompressionConfig with readable
+    metadata from the model
     """
-
-    format: str
-    global_sparsity: Optional[float] = 0.0
-    sparsity_structure: Optional[str] = "unstructured"
 
     @staticmethod
     def infer_global_sparsity(
@@ -95,14 +83,14 @@ class CompressionConfig(RegistryMixin, BaseModel):
         :return: compression config inferred from the model
         """
 
-        global_sparsity = CompressionConfig.infer_global_sparsity(
+        global_sparsity = SparsityConfigMetadata.infer_global_sparsity(
             model, state_dict=state_dict
         )
 
         if global_sparsity < 0.05:
             return None
 
-        sparsity_structure = CompressionConfig.infer_sparsity_structure()
+        sparsity_structure = SparsityConfigMetadata.infer_sparsity_structure()
         if compress:
             format = "sparse_bitmask"
         else:
@@ -114,17 +102,21 @@ class CompressionConfig(RegistryMixin, BaseModel):
             sparsity_structure=sparsity_structure,
         )
 
+    @staticmethod
     def fill_config_details(
-        self, model: Module, state_dict: Optional[Dict[str, Tensor]] = None
+        config: CompressionConfig,
+        model: Module,
+        state_dict: Optional[Dict[str, Tensor]] = None,
     ):
         """
         Fills in informational sparsity parameters from a given model
 
+        :param config: sparsity config to fill in
         :param model: pytorch model to infer config parameters from
         :param state_dict: optional state_dict to replace that in model, used for
         gathering global FSDP model info
         """
-        self.global_sparsity = CompressionConfig.infer_global_sparsity(
+        config.global_sparsity = SparsityConfigMetadata.infer_global_sparsity(
             model, state_dict=state_dict
         )
-        self.sparsity_structure = CompressionConfig.infer_sparsity_structure()
+        config.sparsity_structure = SparsityConfigMetadata.infer_sparsity_structure()

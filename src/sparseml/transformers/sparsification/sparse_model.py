@@ -30,14 +30,13 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
+from compressed_tensors import ModelCompressor, get_safetensors_folder
 from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
-from sparseml.transformers.compression.utils import (
-    get_safetensors_folder,
-    infer_compressor_from_model_config,
+from sparseml.transformers.sparsification.compressed_tensors_utils import (
     modify_save_pretrained,
 )
 from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
@@ -102,7 +101,7 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         )
 
         # determine compression format, if any, from the model config
-        compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
+        compressor = ModelCompressor.from_pretrained(pretrained_model_name_or_path)
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
