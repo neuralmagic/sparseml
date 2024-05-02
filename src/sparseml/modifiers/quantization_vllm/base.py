@@ -35,9 +35,9 @@ class vLLMQuantizationModifier(Modifier):
     modifier will be enabled until training is completed.
 
     :param config_groups: dictionary specifying quantization schemes to apply to target
-    modules. Modules not matching a scheme target will NOT be quantized.
+        modules. Modules not matching a scheme target will NOT be quantized.
     :param ignore: optional list of module class names or submodule names to not
-    quantize even if they match a target in config_groups. Defaults to empty list.
+        quantize even if they match a target in config_groups. Defaults to empty list.
     :param disable_quantization_observer_epoch: Epoch to disable updates to the module
         quantization observers. At this point, quantized weights and zero points will
         not be updated. Leave None to not disable observers during QAT. Default is None
