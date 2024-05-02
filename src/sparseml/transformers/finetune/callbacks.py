@@ -19,8 +19,8 @@ import math
 from transformers import TrainerCallback, TrainerControl, TrainingArguments
 from transformers.trainer_callback import TrainerState
 
+import sparseml
 import sparseml.core.session as session_manager
-from sparseml import active_session
 
 
 __all__ = [
@@ -58,7 +58,7 @@ class TrainingLoopCallbacks(TrainerCallback):
         model, as it will have changed to a wrapper if FSDP is enabled
         """
         super().on_train_begin(args, state, control, **kwargs)
-        session = active_session()
+        session = sparseml.active_session()
         session.state.model.model = self.trainer.model
 
     def on_step_end(
@@ -114,7 +114,7 @@ class DisableHalfPrecisionCallback(TrainerCallback):
         """
         :return: True if a quantization modifier is active in the current session
         """
-        session = active_session()
+        session = sparseml.active_session()
         return session.state.model.qat_active()
 
     def on_epoch_begin(

@@ -18,7 +18,7 @@ import pytest
 import torch
 import yaml
 
-from sparseml import active_session
+import sparseml
 from sparseml.pytorch.model_load.helpers import get_session_model
 from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers import oneshot
@@ -56,7 +56,7 @@ def test_consecutive_runs(tmp_path):
     assert math.isclose(layer_0_sparse.item(), 0.5, rel_tol=1e-3)
     assert qat_active(first_tiny_model)
 
-    session = active_session()
+    session = sparseml.active_session()
     session_recipe = session.lifecycle.recipe_container.compiled_recipe
     stages = [stage.group for stage in session_recipe.stages]
     assert len(stages) == 1
@@ -80,7 +80,7 @@ def test_consecutive_runs(tmp_path):
     assert math.isclose(layer_0_sparse.item(), 0.7, rel_tol=1e-3)
     assert qat_active(second_tiny_model)
 
-    session = active_session()
+    session = sparseml.active_session()
     session_recipe = session.lifecycle.recipe_container.compiled_recipe
     stages = [stage.group for stage in session_recipe.stages]
     assert len(stages) == 2
@@ -133,7 +133,7 @@ def test_fail_on_repeated_quant(tmp_path):
         clear_sparse_session=False,
     )
 
-    session = active_session()
+    session = sparseml.active_session()
     session.reset()
 
     # When trying to re-quantize with the second recipe, we should error out
@@ -201,7 +201,7 @@ def test_separate_quants_allowed(tmp_path):
         first_model.model.layers[0].mlp.down_proj, torch_quantization.QuantWrapper
     )
     assert hasattr(first_model.model.embed_tokens, "quantization_scheme")
-    session = active_session()
+    session = sparseml.active_session()
     session.reset()
 
     # When trying to re-quantize with the second recipe, we should error out

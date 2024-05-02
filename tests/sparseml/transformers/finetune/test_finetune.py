@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from sparseml import create_session
+import sparseml
 from sparseml.modifiers.obcq.base import SparseGPTModifier
 from sparseml.transformers import (
     SparseAutoModelForCausalLM,
@@ -110,7 +110,7 @@ def test_oneshot_then_finetune(tmp_path: Path):
     output_dir = tmp_path / "oneshot_out"
     splits = {"calibration": "train[:10%]"}
 
-    with create_session():
+    with sparseml.create_session():
         oneshot(
             model=model,
             dataset=dataset,
@@ -130,7 +130,7 @@ def test_oneshot_then_finetune(tmp_path: Path):
     splits = "train[:50%]"
     max_steps = 50
 
-    with create_session():
+    with sparseml.create_session():
         train(
             model=model,
             distill_teacher="Xenova/llama2.c-stories15M",

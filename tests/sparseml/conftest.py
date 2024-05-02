@@ -100,10 +100,10 @@ def setup_fresh_session():
     setup any state tied to the execution of the given method in a
     class.  setup_method is invoked for every test method of a class.
     """
-    from sparseml import reset_session
+    import sparseml
 
     # start with a clean session for each test
-    reset_session()
+    sparseml.reset_session()
     yield
     # reset the session after each test
-    reset_session()
+    sparseml.reset_session()
