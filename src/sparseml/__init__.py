@@ -25,6 +25,7 @@ from .log import *
 from .version import *
 
 from .core import *
+from .base import check_version, detect_framework, execute_in_sparseml_framework
 from .framework import (
     FrameworkInferenceProviderInfo,
     FrameworkInfo,
