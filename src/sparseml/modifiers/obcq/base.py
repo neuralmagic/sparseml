@@ -15,9 +15,10 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
+from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
-from sparseml.modifiers.pruning.wanda.base import WandaPruningModifier
 
 
 __all__ = ["SparseGPTModifier"]
@@ -25,7 +26,7 @@ __all__ = ["SparseGPTModifier"]
 _LOGGER = logging.getLogger(__name__)
 
 
-class SparseGPTModifier(WandaPruningModifier):
+class SparseGPTModifier(Modifier):
     """
     Modifier for applying the one-shot OBCQ algorithm to a model
 
@@ -41,19 +42,35 @@ class SparseGPTModifier(WandaPruningModifier):
         - on_finalize
             - LayerCompressor.revert_layer_wrappers()
 
+    :param sparsity: Sparsity to compress model to
+    :param mask_structure: String to define the structure of the mask to apply.
+        Must be of the form N:M where N, M are integers that define a custom block
+        shape. Defaults to 0:0 which represents an unstructured mask.
+    :param sequential_update: Whether or not to update weights sequentially by layer,
+        True saves on GPU memory
+    :param targets: list of layer names to compress during OBCQ, or '__ALL__'
+        to compress every layer in the model
     :param block_size: Used to determine number of columns to compress in one pass
     :param quantize: Whether or not to quantize weights during SparseGPT. Set to
         True to quantize using an existing quantization modifier, or pass in the
         configuration for a quantization modifier if one does not already exist
         in the recipe
-    :param sparsity: Sparsity to compress model to
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
     """
 
+    sparsity: Union[float, List[float]] = 0.0
+    sparsity_profile: Optional[str] = None
+    owl_m: Optional[int] = None
+    owl_lmbda: Optional[float] = None
+    mask_structure: str = "0:0"
+    sequential_update: Optional[bool] = False
+    targets: Union[str, List[str], None] = None
+    compressible_layers_: Optional[List] = None
+    prunen_: Optional[int] = None
+    prunem_: Optional[int] = None
     block_size: int = 128
     quantize: Union[bool, Dict] = False
-    sparsity: Union[float, List[float]] = 0.0
     dampening_frac: Optional[float] = 0.01
     quantization_modifier_: Any = None
 
@@ -112,6 +129,39 @@ class SparseGPTModifier(WandaPruningModifier):
         if self.quantization_modifier_:
             self.quantization_modifier_.on_initialize_structure(state, **kwargs)
 
+    def compressible_layers(self) -> Dict:
+        """
+        Retrieves the modules corresponding to a list of
+        compressible layer names
+
+        :precondition: self.model is set and is a `ModifiableModel`
+        :precondition: The `ModifiableModel` implements a `get_layers`
+            method
+        :return: dictionary of modules to compress
+        """
+        if not isinstance(self.model, ModifiableModel):
+            raise ValueError(
+                "`self.model` must be a ModifiableModel to use "
+                f"the {self.__class__.__qualname__} modifier but got "
+                f"{type(self.model)} instead"
+            )
+
+        return self.model.get_layers(self.targets)
+
+    def _validate_layerwise_sparsity(self):
+        if isinstance(self.sparsity, float):
+            # single sparsity will be applied to all layers
+            return
+
+        target_layers = list(self.compressible_layers_.keys())
+
+        if len(target_layers) != len(self.sparsity):
+            raise ValueError(
+                "Number of layer targets must match the number of "
+                f"sparsities. Got {len(target_layers)} layers and "
+                f"{len(self.sparsity)} sparsities"
+            )
+
     def _build_quant_modifier_from_dict(self, quant_config, framework):
         modifier_type = list(quant_config.keys())[0]
         modifier_args = quant_config[modifier_type]
@@ -122,3 +172,14 @@ class SparseGPTModifier(WandaPruningModifier):
             allow_experimental=True,
             **modifier_args,
         )
+
+    def on_finalize(self, state: State, **kwargs):
+        """
+        Nothing to do on finalize, on this level.
+        Quantization Modifier if any will be finalized in the subclass
+
+        :param state: session state storing input model and calibration data
+        :param kwargs: additional arguments
+        :return: True
+        """
+        return True
