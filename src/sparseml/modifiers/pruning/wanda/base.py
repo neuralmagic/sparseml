@@ -37,8 +37,8 @@ class WandaPruningModifier(Modifier):
                 - run_calibration_forward()
                 - LayerCompressor.compress()
                 - LayerCompressor.post_compress()
+                - LayerCompressor.revert_layer_wrappers()
         - on_finalize
-            - LayerCompressor.revert_layer_wrappers()
 
     :param sparsity: Sparsity to compress model to
     :param mask_structure: String to define the structure of the mask to apply.
