@@ -19,9 +19,9 @@ import pytest
 import torch
 from transformers import AutoConfig
 
-from sparseml import reset_session
 from compressed_tensors import SPARSITY_CONFIG_NAME
 from compressed_tensors.config import BitmaskConfig, DenseSparsityConfig
+from sparseml import reset_session
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 

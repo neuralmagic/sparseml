@@ -24,12 +24,6 @@ Tooling to help train, test, and optimize models for better performance
 from .log import *
 from .version import *
 
-from .base import (
-    Framework,
-    check_version,
-    detect_framework,
-    execute_in_sparseml_framework,
-)
 from .core import *
 from .framework import (
     FrameworkInferenceProviderInfo,
