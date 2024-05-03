@@ -18,7 +18,7 @@ import unittest
 import pytest
 
 from parameterized import parameterized_class
-from tests.sparseml.pytorch.oneshot.dataset_processing import get_data_utils
+from tests.sparseml.transformers.oneshot.dataset_processing import get_data_utils
 from tests.testing_utils import parse_params, requires_torch
 
 
