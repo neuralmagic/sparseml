@@ -172,27 +172,38 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                         q = torch.quantize_per_channel(q, scale, zero_point, 0, dtype)
                     q = torch.dequantize(q)
                 elif hasattr(self.layer, "quantization_scheme"):
-                    if self.layer.quantization_scheme.weights is not None:
+                    quant_scheme = self.layer.quantization_scheme
+                    if quant_scheme.weights is not None:
                         scale = self.layer.weight_scale
                         zero_point = self.layer.weight_zero_point
+                        from compressed_tensors.quantization import QuantizationStrategy
                         from compressed_tensors.quantization.lifecycle.forward import (
                             fake_quantize,
                         )
 
-                        while scale.ndim < 2:
-                            scale = scale.unsqueeze(1)
-                            zero_point = zero_point.unsqueeze(1)
+                        if quant_scheme.weights.strategy == QuantizationStrategy.TENSOR:
+                            q = fake_quantize(
+                                q,
+                                scale,
+                                zero_point,
+                                self.layer.quantization_scheme.weights,
+                            )
+                        else:
+                            while scale.ndim < 2:
+                                scale = scale.unsqueeze(scale.ndim)
+                                zero_point = zero_point.unsqueeze(zero_point.ndim)
 
-                        while q.ndim < 2:
-                            q = q.unsqueeze(1)
-                        q = fake_quantize(
-                            q,
-                            scale[:, i],
-                            zero_point[:, i],
-                            self.layer.quantization_scheme.weights,
-                        )
+                            while q.ndim < 2:
+                                q = q.unsqueeze(q.ndim)
 
-                while q.ndim != 1:
+                            q = fake_quantize(
+                                q,
+                                scale[:, i],
+                                zero_point[:, i],
+                                self.layer.quantization_scheme.weights,
+                            )
+
+                while q.ndim > 1:
                     q.squeeze()
 
                 Q1[:, i] = q

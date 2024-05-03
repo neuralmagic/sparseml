@@ -19,6 +19,7 @@ from torch.nn import Module
 
 import sparseml.core.session as session_manager
 from compressed_tensors import CompressionFormat, SparsityCompressionConfig
+from compressed_tensors.quantization.utils import is_model_quantized
 from sparseml.pytorch.utils import ModuleSparsificationInfo
 
 
@@ -91,7 +92,10 @@ class SparsityConfigMetadata:
             return None
 
         sparsity_structure = SparsityConfigMetadata.infer_sparsity_structure()
-        if compress:
+        if is_model_quantized(model):
+            # compressing a sparse quantized model is not supported yet
+            format = CompressionFormat.dense.value
+        elif compress:
             format = CompressionFormat.sparse_bitmask.value
         else:
             format = CompressionFormat.dense.value
