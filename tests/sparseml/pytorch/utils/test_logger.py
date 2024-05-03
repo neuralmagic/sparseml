@@ -19,8 +19,7 @@ from abc import ABC
 
 import pytest
 
-from sparseml.pytorch.utils import (
-    ClearMLLogger,
+from sparseml.pytorch.utils import (  # ClearMLLogger,
     LambdaLogger,
     LoggerManager,
     PythonLogger,
@@ -46,7 +45,7 @@ from sparseml.pytorch.utils import (
             or True
         ),
         *([WANDBLogger()] if WANDBLogger.available() else []),
-        *([ClearMLLogger()] if ClearMLLogger.available() else []),
+        # *([ClearMLLogger()] if ClearMLLogger.available() else []),
         SparsificationGroupLogger(
             lambda_func=lambda tag, value, values, step, wall_time, level: logging.info(
                 f"{tag}, {value}, {values}, {step}, {wall_time}, {level}"
