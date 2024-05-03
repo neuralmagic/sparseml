@@ -3,4 +3,4 @@ test_type: "smoke"
 tokenize: True
 model: "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
 dataset: open_platypus
-recipe: "tests/sparseml/pytorch/oneshot/oneshot_configs/recipes/recipe.yaml"
+recipe: "tests/sparseml/transformers/oneshot/oneshot_configs/recipes/recipe.yaml"
