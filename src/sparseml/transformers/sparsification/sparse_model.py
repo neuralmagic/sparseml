@@ -31,11 +31,6 @@ from transformers import (
 from transformers.file_utils import WEIGHTS_NAME
 
 from compressed_tensors.compressors import ModelCompressor
-from compressed_tensors.quantization import (
-    QuantizationConfig,
-    apply_quantization_config,
-    load_pretrained_quantization,
-)
 from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
@@ -124,7 +119,6 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         # structure and run decompression
         if compressor is not None:
             # initialize quantization and decompress weights
-            # TODO: should we move the quantize logic out of compress?
             compressor.decompress(model_path=pretrained_model_name_or_path, model=model)
         else:
             # legacy loading for old quantization modifier

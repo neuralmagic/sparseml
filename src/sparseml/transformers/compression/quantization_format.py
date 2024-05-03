@@ -29,9 +29,9 @@ def infer_quantization_format(
     Infers a quantization format based on model state and compression args
 
     :param model: model to check for quantization, if the model is not quantized no
-    quantization format is returned
+        quantization format is returned
     :param quantization_format: user provided quantization format, supercedes any
-    inferred quantization format
+        inferred quantization format
     :param save_compressed: used to infer a quantization format if None is provided
     :return compression format appropriate for model
     """
