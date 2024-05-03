@@ -179,9 +179,21 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                             fake_quantize,
                         )
 
+                        while scale.ndim < 2:
+                            scale = scale.unsqueeze(1)
+                            zero_point = zero_point.unsqueeze(1)
+
+                        while q.ndim < 2:
+                            q = q.unsqueeze(1)
                         q = fake_quantize(
-                            q, scale, zero_point, self.layer.quantization_scheme.weights
+                            q,
+                            scale[:, i],
+                            zero_point[:, i],
+                            self.layer.quantization_scheme.weights,
                         )
+
+                while q.ndim != 1:
+                    q.squeeze()
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2

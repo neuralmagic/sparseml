@@ -32,17 +32,22 @@ _LOGGER = logging.getLogger(__name__)
 
 class vLLMQuantizationModifierPyTorch(vLLMQuantizationModifier):
     """
-    Pytorch-specific implementation of quantization modifier
+    PyTorch specific implementation of vLLMQuantizationModifier
 
-    :param scheme: Default QuantizationScheme to use when enabling quantization
-        in a module. May also be a dictionary to be loaded into the QuantizationScheme
-        class. A string alias may also be used, supported aliases:
-        ['default', 'deepsparse', 'tensorrt'].
-        If None, the default scheme (`QuantizationScheme()`) will be used.
-        Default is None
-    :param scheme_overrides: optional mapping of module type names or submodule type
-        names to quantization schemes to override them with. If a scheme is mapped to
-        'default', then it will use the scheme set in the mo difier scheme property
+    Enables post training quantization (PTQ) and quantization aware training (QAT) for a
+    given module or its submodules. After calibration (PTQ) or the start epoch (QAT),
+    the specified module(s) forward pass will emulate quantized execution and the
+    modifier will be enabled until training is completed.
+
+    :param config_groups: dictionary specifying quantization schemes to apply to target
+        modules. Modules not matching a scheme target will NOT be quantized.
+    :param ignore: optional list of module class names or submodule names to not
+        quantize even if they match a target in config_groups. Defaults to empty list.
+    :param disable_quantization_observer_epoch: Epoch to disable updates to the module
+        quantization observers. At this point, quantized weights and zero points will
+        not be updated. Leave None to not disable observers during QAT. Default is None
+    :param num_calibration_steps: Number of steps to run post training calibration for.
+        When None, the entire calibration_dataloader is used
     """
 
     calibration_dataloader_: Any = None
