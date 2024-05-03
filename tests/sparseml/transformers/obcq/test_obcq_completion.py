@@ -25,25 +25,11 @@ CONFIGS_DIRECTORY = "tests/sparseml/transformers/obcq/obcq_configs/completion"
 GPU_CONFIGS_DIRECTORY = "tests/sparseml/transformers/obcq/obcq_configs/completion/gpu"
 
 
-@requires_torch
-@pytest.mark.integration
-@parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestOBCQCompletion(unittest.TestCase):
     """
     Test for oneshot for quantization and quantization + sparsity. Sparsity-only tests
     can be found under `test_obcq_sparsity.py`
     """
-
-    model = None
-    dataset = None
-    recipe = None
-    sparsity = None
-
-    def setUp(self):
-        import torch
-
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.output = "./oneshot_output"
 
     def labeled_dataloader(self, dataset_name, model_name):
         from torch.utils.data import DataLoader
@@ -74,7 +60,7 @@ class TestOBCQCompletion(unittest.TestCase):
 
         return data_loader
 
-    def test_oneshot_completion(self):
+    def _test_oneshot_completion(self, model_name: str = None):
         import torch
 
         from sparseml.pytorch.model_load.helpers import get_session_model
@@ -86,8 +72,8 @@ class TestOBCQCompletion(unittest.TestCase):
             dataset=self.dataset,
             oneshot_device=self.device,
             recipe=self.recipe,
-            max_seq_length=128,
-            num_calibration_samples=32,
+            max_seq_length=512,
+            num_calibration_samples=self.num_samples,
             pad_to_max_length=False,
             output_dir=self.output,
             clear_sparse_session=False,
@@ -98,61 +84,79 @@ class TestOBCQCompletion(unittest.TestCase):
         dataset = "open_platypus"
 
         iter = 10
-        dataloader = self.labeled_dataloader(dataset, self.model)
+        if model_name:
+            dataloader = self.labeled_dataloader(dataset, model_name)
+        else:
+            dataloader = self.labeled_dataloader(dataset, self.model)
+
         total_new_ppl = 0.0
         for idx, sample in enumerate(dataloader):
             if idx >= iter:
                 break
-            new_output = first_tiny_model(**(tensors_to_device(sample, self.device)))
+
+            with torch.no_grad():
+                new_output = first_tiny_model(
+                    **(tensors_to_device(sample, self.device))
+                )
             new_ppl = torch.exp(new_output.loss)
             total_new_ppl += new_ppl
 
         avg_new_ppl = total_new_ppl / iter
-        self.assertLess(avg_new_ppl, 5000)
+        self.assertLess(avg_new_ppl, self.perplexity)
 
     def tearDown(self):
         shutil.rmtree(self.output)
 
 
 @requires_torch
+@pytest.mark.integration
+@parameterized_class(parse_params(CONFIGS_DIRECTORY))
+class TestOBCQCompletionSmall(TestOBCQCompletion):
+
+    model = None
+    dataset = None
+    recipe = None
+    sparsity = None
+    num_samples = None
+    perplexity = None
+
+    def setUp(self):
+        import torch
+
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.output = "./oneshot_output"
+
+    def test_obcq_completion_small(self):
+        self._test_oneshot_completion()
+
+
+@requires_torch
 @requires_gpu
 @pytest.mark.integration
 @parameterized_class(parse_params(GPU_CONFIGS_DIRECTORY))
-class TestOBCQCompletionGPU(unittest.TestCase):
-    """
-    Test for oneshot for quantization and quantization + sparsity. Sparsity-only tests
-    can be found under `test_obcq_sparsity.py`
-    """
+class TestOBCQCompletionGPU(TestOBCQCompletion):
 
     model = None
     dataset = None
     recipe = None
     sparsity = None
     device = None
+    num_samples = None
+    perplexity = None
 
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM
 
+        self.model_name = None
         self.output = "./oneshot_output"
 
+        # Temporary fix as oneshot seems to not work with zoo: models
+        # Need to keep th model name for the perplexity calculation post oneshot
         if "zoo:" in self.model:
+            self.model_name = self.model
             self.model = SparseAutoModelForCausalLM.from_pretrained(
                 self.model, device_map=self.device
             )
 
-    def test_oneshot_completion(self):
-        from sparseml.transformers import oneshot
-
-        oneshot(
-            model=self.model,
-            dataset=self.dataset,
-            oneshot_device=self.device,
-            recipe=self.recipe,
-            max_seq_length=512,
-            num_calibration_samples=512,
-            pad_to_max_length=False,
-            output_dir=self.output,
-        )
-
-    def tearDown(self):
-        shutil.rmtree(self.output)
+    def test_oneshot_completion_gpu(self):
+        self._test_oneshot_completion(model_name=self.model_name)
