@@ -37,7 +37,12 @@ def is_torch_available():
 
 
 def is_gpu_available():
-    return False
+    try:
+        import torch  # noqa: F401
+
+        return torch.cuda.device_count() > 0
+    except ImportError:
+        return False
 
 
 def requires_torch(test_case):
