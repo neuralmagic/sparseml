@@ -26,7 +26,7 @@ def test_apply_recipe_structure():
     model = AutoModelForCausalLM.from_pretrained(model_path)
     assert not qat_active(model)
 
-    recipe_with_quant = "tests/sparseml/transformers/obcq/quant_and_sparse.yaml"
+    recipe_with_quant = "tests/sparseml/transformers/obcq/recipes/quant_and_sparse.yaml"
     apply_recipe_structure_to_model(model, recipe_with_quant, model_path)
 
     assert qat_active(model)
