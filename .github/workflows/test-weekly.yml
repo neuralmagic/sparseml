@@ -1,0 +1,22 @@
+name: Run Weekly tests
+on:
+  schedule:
+    - cron: '0 8 * * 0'
+
+
+jobs:
+  run-weekly-tests:
+    runs-on: k8s-eng-gpu-64G-v100-32G # Should have multiple gpus enabled
+    env:
+      CADENCE: "weekly"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: "⚙️ Install dependencies"
+        run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
+      - name: Run integration tests 
+        run:
+          pytest tests -m integeration
+      
