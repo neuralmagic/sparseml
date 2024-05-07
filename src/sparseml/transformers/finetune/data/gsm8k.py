@@ -28,7 +28,7 @@ class GSM8KDataset(TextGenerationDataset):
     :param tokenizer: tokenizer to use on dataset
     """
 
-    GSM_TEMPLATE = "Question: {question}.\nAnswer:"
+    GSM_TEMPLATE = "Question: {question}\nAnswer:"
 
     def __init__(self, data_args, split, tokenizer):
         data_args = deepcopy(data_args)
