@@ -25,6 +25,7 @@ from packaging import version
 from torch.nn import Linear, Module, Parameter
 from torch.nn.modules.conv import _ConvNd
 
+from compressed_tensors.quantization.utils import is_module_quantized
 from sparseml.core.model.base import ModelParameterizedLayer
 from sparseml.utils.fsdp.context import fix_fsdp_module_name, summon_full_params_context
 
@@ -282,6 +283,8 @@ def qat_active(module: Module) -> bool:
     """
     for _, layer in module.named_modules():
         if isinstance(layer, torch.quantization.FakeQuantize):
+            return True
+        if is_module_quantized(layer):
             return True
 
     return False
