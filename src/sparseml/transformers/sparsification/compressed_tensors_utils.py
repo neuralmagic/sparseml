@@ -24,6 +24,7 @@ from compressed_tensors.quantization.utils import is_model_quantized
 from sparseml.transformers.compression.quantization_format import (
     infer_quantization_format,
 )
+from compressed_tensors.quantization.utils import is_model_quantized
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 from sparseml.utils.pytorch import qat_active
 
