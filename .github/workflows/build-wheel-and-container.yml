@@ -55,22 +55,23 @@ jobs:
       python: '3.10'
     secrets: inherit
 
-  test-wheel-and-push-internal:
+  test-wheel-and-publish:
     needs: build-wheel-and-push
-    uses: ./.github/workflows/test-wheel-push-to-internal.yml
+    uses: ./.github/workflows/test-wheel-and-publish.yml
     with:
-      build-label: aws-avx2-64G
+      build-label: k8s-eng-gpu-64G-v100-32
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
       python: '3.10'
+      dev: ${{ needs.set-outputs.outputs.dev }}
+      release: ${{ needs.set-outputs.outputs.release  }}
     secrets: inherit
 
-  # TODO: add nightly and release container build steps once wheel build push
-  # to production is automated. Removed until then.
+  # TODO: add release container build steps once 
   build-container-and-push:
-    needs: [set-outputs, test-wheel-and-push-internal]
+    needs: [set-outputs, test-wheel-and-publish]
     uses: ./.github/workflows/build-container.yml
     with:
-      build-label: aws-avx2-64G
+      build-label: k8s-eng-gpu-64G-v100-32
       dev: ${{ needs.set-outputs.outputs.dev }}
       release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }}

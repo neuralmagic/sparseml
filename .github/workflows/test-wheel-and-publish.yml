@@ -1,4 +1,4 @@
-name: Test Wheel and Push to Internal PyPi
+name: Test Wheel and Publish
 on:
   workflow_call:
     inputs:
@@ -11,9 +11,15 @@ on:
         required: true
       python:
         type: string
+      dev:
+        type: string
+        required: true 
+      release:
+        type: string
+        required: true
 
 jobs:
-  test-wheel-and-push-internal:
+  test-wheel-and-publish:
     runs-on: ${{ inputs.build-label }}
     steps:
     - uses: actions/setup-python@v4
@@ -47,7 +53,7 @@ jobs:
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
           
     - name: Push to internal pypi
-      uses: neuralmagic/nm-actions/actions/nm-upload-whl@main
+      uses: neuralmagic/nm-actions/actions/upload-whl@main
       with:
         server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
         username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
@@ -66,3 +72,14 @@ jobs:
       run: |
             rm -rf src
             make test
+      
+    - name: Publish Nightly Wheel
+      if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
+      uses: neuralmagic/nm-actions/actions/publish-whl@main
+      with:
+        username: ${{ secrets.PYPI_PUBLIC_USER }}
+        password: ${{ secrets.PYPI_PUBLIC_AUTH }}
+        whel: ./$FILENAME
+
+
+    
