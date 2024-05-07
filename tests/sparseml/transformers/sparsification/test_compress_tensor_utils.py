@@ -37,7 +37,7 @@ from sparseml.transformers.compression.sparsity_config import SparsityConfigMeta
     ],
 )
 def test_sparse_model_reload(compressed, config, dtype, tmp_path):
-    recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
+    recipe_str = "tests/sparseml/transformers/obcq/recipes/test_tiny2.yaml"
     model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     if not torch.cuda.is_available():
