@@ -55,7 +55,7 @@ jobs:
           push: true
           tags: ghcr.io/neuralmagic/sparseml-dev:${{ inputs.name }}
       
-       - name: Build Nightly Docker Container
+      - name: Build Nightly Docker Container
         if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
         uses: docker/build-push-action@v4
         with:
