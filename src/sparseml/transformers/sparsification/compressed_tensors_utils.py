@@ -22,7 +22,14 @@ from typing import Optional
 from transformers import PreTrainedModel
 from transformers.file_utils import CONFIG_NAME
 
-from compressed_tensors import SPARSITY_CONFIG_NAME, CompressionConfig, ModelCompressor
+from compressed_tensors import (
+    QUANTIZATION_CONFIG_NAME,
+    SPARSITY_CONFIG_NAME,
+    CompressionConfig,
+    ModelCompressor,
+    QuantizationConfig,
+)
+from compressed_tensors.quantization.utils import is_model_quantized
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 from sparseml.utils.pytorch import qat_active
 
@@ -76,15 +83,44 @@ def modify_save_pretrained(model: PreTrainedModel):
             # state_dict gets passed in as a kwarg for FSDP models
             state_dict = kwargs.get("state_dict", None)
 
-            if qat_active(model):
+            # check if we are in the old quantization framework
+            if qat_active(model) and not is_model_quantized(model):
                 _LOGGER.info(
-                    "Compression for quantized models is not yet supported. Save will "
-                    "be run without compression and no sparsity statistics will be "
-                    "calculated."
+                    "Compression for models quantized with QuantizationModifer is not "
+                    "supported. Save will be run without compression and no sparsity "
+                    "statistics will be calculated. To save a quantized model in a "
+                    "compressed state please use vLLMQuantizationModifier instead."
                 )
-                return original_save_pretrained.__get__(model, model_class)(
+
+                original_save_pretrained.__get__(model, model_class)(
                     save_directory, **kwargs
                 )
+
+                return
+
+            elif qat_active(model):  # quantized in new framework
+                _LOGGER.info(
+                    "Sparsity compression for quantized models is not yet supported. "
+                    "No sparsity statistics will be calculated and no sparsity config "
+                    "will be saved."
+                )
+
+                original_save_pretrained.__get__(model, model_class)(
+                    save_directory, **kwargs
+                )
+
+                quant_config = QuantizationConfig.from_pretrained(model)
+                quant_config_data = quant_config.model_dump(exclude_unset=True)
+                config_file_path = os.path.join(save_directory, CONFIG_NAME)
+
+                # add the sparsity config to the model's config file
+                with open(config_file_path, "r") as config_file:
+                    config_data = json.load(config_file)
+                config_data[QUANTIZATION_CONFIG_NAME] = quant_config_data
+                with open(config_file_path, "w") as config_file:
+                    json.dump(config_data, config_file, indent=2, sort_keys=True)
+
+                return
 
             if sparsity_config is not None:
                 sparsity_config.global_sparsity = (
@@ -104,7 +140,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     "calculation of compression statistics set "
                     "skip_compression_stats=True"
                 )
-                sparsity_config = SparsityConfigMetadata.infer_config_from_model(
+                sparsity_config = SparsityConfigMetadata.from_pretrained(
                     model, state_dict=state_dict, compress=save_compressed
                 )
 

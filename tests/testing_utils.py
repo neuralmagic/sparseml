@@ -40,10 +40,12 @@ def is_gpu_available():
     """
     Check for GPU and warn if not found
     """
-    is_torch_available()
-    import torch
+    try:
+        import torch  # noqa: F401
 
-    return torch.cuda.is_available()
+        return torch.cuda.device_count() > 0
+    except ImportError:
+        return False
 
 
 def requires_torch(test_case):
