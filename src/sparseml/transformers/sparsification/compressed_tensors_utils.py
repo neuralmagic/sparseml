@@ -91,7 +91,7 @@ def modify_save_pretrained(model: PreTrainedModel):
                     "statistics will be calculated. To save a quantized model in a "
                     "compressed state please use vLLMQuantizationModifier instead."
                 )
-                kwargs["safe_serialization"] = False
+
                 original_save_pretrained.__get__(model, model_class)(
                     save_directory, **kwargs
                 )
