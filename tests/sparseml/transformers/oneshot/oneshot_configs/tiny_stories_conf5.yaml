@@ -1,6 +1,6 @@
 cadence: "commit"
 test_type: "smoke"
 tokenize: True
-model: "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
+model: "Xenova/llama2.c-stories15M"
 dataset: open_platypus
 recipe: "tests/sparseml/transformers/oneshot/oneshot_configs/recipes/recipe.yaml"
