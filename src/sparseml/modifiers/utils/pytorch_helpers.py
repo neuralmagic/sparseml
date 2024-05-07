@@ -123,7 +123,7 @@ def check_for_undercalibrated_modules(
         if token_count / total_token_count < threshold:
             _LOGGER.warning(
                 f"The module_name: {module_name} "
-                f"received less than {int(threshold) * 100}% "
+                f"received less than {int(threshold * 100)}% "
                 f"of calibration batch tokens ({token_count} tokens). "
                 "This could result may harm the quantization quality."
                 "\nTo address this issue either:"
