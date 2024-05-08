@@ -65,11 +65,11 @@ jobs:
       run: |
           pip3 install $FILENAME[dev]
 
-    - name: List
-      run: |
-          pwd
-          ls
-          echo "DIR=$(pwd)" >> $GITHUB_ENV
+    - name: Upload whl
+      uses: actions/upload-artifact@v4
+      with:
+        name: $FILENAME
+        path: $FILENAME
 
     - name: Checkout code
       uses: actions/checkout@v3
@@ -79,13 +79,12 @@ jobs:
             pwd
             rm -rf src
             make test
-    
-    - name: List
-      working-directory: $DIR
-      run: |
-          cd $DIR
-          ls
 
+    - name: Download whl
+      uses: actions/download-artifact@v4
+      with:
+        name: $FILENAME
+        
     - name: Publish Nightly Wheel
       if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
       uses: neuralmagic/nm-actions/actions/publish-whl@main
