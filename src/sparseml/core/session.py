@@ -30,6 +30,7 @@ __all__ = [
     "SparseSession",
     "create_session",
     "active_session",
+    "reset_session",
     "pre_initialize_structure",
     "initialize",
     "finalize",
@@ -386,6 +387,14 @@ def active_session() -> SparseSession:
     """
     global _local_storage
     return getattr(_local_storage, "session", _global_session)
+
+
+def reset_session():
+    """
+    Reset the currently active session to its initial state
+    """
+    session = active_session()
+    session._lifecycle.reset()
 
 
 def pre_initialize_structure(**kwargs):
