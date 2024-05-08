@@ -21,7 +21,7 @@ from parameterized import parameterized_class
 from tests.testing_utils import parse_params, requires_torch, run_cli_command
 
 
-CONFIGS_DIRECTORY = "tests/sparseml/pytorch/oneshot/oneshot_configs"
+CONFIGS_DIRECTORY = "tests/sparseml/transformers/oneshot/oneshot_configs"
 
 
 @pytest.mark.smoke
