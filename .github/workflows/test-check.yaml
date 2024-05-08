@@ -140,7 +140,7 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
-    runs-on: ubuntu-22.04
+    runs-on: aws-avx2-64G
     env:
       SPARSEZOO_TEST_MODE: "true"
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
@@ -169,7 +169,7 @@ jobs:
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-pytorch-tests:
-    runs-on: ubuntu-22.04
+    runs-on: aws-avx2-64G
     env:
       SPARSEZOO_TEST_MODE: "true"
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
@@ -222,7 +222,7 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   transformers-tests:
-    runs-on: ubuntu-22.04
+    runs-on: aws-avx2-64G
     env:
       SPARSEZOO_TEST_MODE: "true"
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
