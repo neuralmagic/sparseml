@@ -76,10 +76,12 @@ jobs:
 
     - name: Remove src files and run tests
       run: |
+            pwd
             rm -rf src
             make test
     
     - name: List
+      working-directory: $DIR
       run: |
           cd $DIR
           ls
