@@ -58,7 +58,6 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     |               dampening_frac: 0.001
     |               targets: __ALL__
     |               block_size: 128
-    |               quantize: False
 
     :param model: Pytorch model to perform OBCQ on, in-place
     """
@@ -74,12 +73,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         if not self.initialized_structure_:
             self.on_initialize_structure(state, **kwargs)
-        if self.quantization_modifier_:
-            self.quantization_modifier_.initialize(state, **kwargs)
-        if not self.quantize and self.sparsity == 0.0:
+
+        if self.sparsity == 0.0:
             raise ValueError(
-                "To use the SparseGPTModifier, target sparsity must be > 0.0 or "
-                "quantization must be enabled."
+                "To use the SparseGPTModifier, target sparsity must be > 0.0"
             )
 
         modifiable_model = state.model
@@ -91,18 +88,20 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             # decoder layers (ie LlamaDecoderLayer)
             self.targets = modifiable_model.get_no_split_params()
 
-        self.initialize_compression(modifiable_model, calibration_dataloader)
-        self.apply_compression(calibration_dataloader)
+        self.initialize_compression(
+            model=modifiable_model, dataloader=calibration_dataloader
+        )
+        self.apply_compression(dataloader=calibration_dataloader)
 
         return True
 
     def initialize_compression(
         self,
         model: ModifiableModel,
-        dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
+        dataloader: Iterable[Tuple[List, Dict[str, Any]]],
     ):
         """
-        Setup for WANDA, initializes the model, device,
+        Setup for SparseGPT, initializes the model, block_size
         and other parameters, also initilializes the
         compressible layers of model, and sets the device
 
@@ -119,7 +118,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                 "Inferring layer-wise sparsities from "
                 f"{len(dataloader)} calibration samples..."
             )
-            self.sparsity = self._infer_layer_sparsity(dataloader)
+            self.sparsity = self._infer_layer_sparsity(
+                calibration_dataloader=dataloader
+            )
         self._validate_layerwise_sparsity()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
@@ -130,22 +131,27 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                 layer_sparsity = self.sparsity[idx]
             else:  # float
                 layer_sparsity = self.sparsity
-            args = self._pruning_arguments(layer_sparsity)
+            args = self._compression_arguments(sparsity=layer_sparsity)
             comp_cls = self._compression_class()
-            compressor = LayerCompressor(comp_cls, self.model, layer, idx, name, args)
+            compressor = LayerCompressor(
+                module_compressor_class=comp_cls,
+                model=self.model,
+                layer=layer,
+                layer_index=idx,
+                name=name,
+                args=args,
+            )
             if not self.sequential_update:
                 # add all batch processing hooks before the forward pass
                 compressor.pre_compress()
             self.layer_compressors_.append(compressor)
 
     @torch.no_grad()
-    def apply_compression(
-        self, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None
-    ) -> Dict:
+    def apply_compression(self, dataloader: Iterable[Tuple[List, Dict[str, Any]]]):
         """
-        Run Wanda on the loaded model, using dataloader as calibration data
+        Apply SparseGPT on the loaded model, using dataloader as calibration data
 
-        :param dataloader: calibration data for WANDA
+        :param dataloader: calibration data for SparseGPT
         """
         class_name = self.__class__.__name__.replace("PyTorch", "")
         _LOGGER.info(
@@ -178,21 +184,16 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def on_finalize(self, state: "State", **kwargs) -> bool:
         """
-        disable the quantization observers used by the OBCQ algorithm
-
         :param state: session state storing input model and calibration data
         """
-        if self.quantization_modifier_:
-            self.quantization_modifier_.finalize(state, **kwargs)
-
         return super(SparseGPTModifierPyTorch, self).on_finalize(state, **kwargs)
 
-    def _pruning_arguments(self, sparsity):
+    def _compression_arguments(self, sparsity):
         """
         Gather the parameters needed for root module compression in a dict
 
         :param sparsity: target sparsity
-        :return: dict of params for pruning
+        :return: dict of params for compression
         """
         return {
             "sparsity": sparsity,
@@ -216,8 +217,8 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         :post-condition: prunen_ and prunem_ are set
         """
-        if self.mask_structure is None:
-            raise ValueError("mask_structure must be defined")
+        if not isinstance(self.mask_structure, str) or ":" not in self.mask_structure:
+            raise ValueError("mask_structure must be a valid string of the form N:M")
 
         self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
 

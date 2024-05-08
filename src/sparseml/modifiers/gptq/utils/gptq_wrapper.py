@@ -30,12 +30,12 @@ import torch
 import torch.nn as nn
 
 
-__all__ = ["SparseGptWrapper"]
+__all__ = ["GPTQWrapper"]
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SparseGptWrapper(ModuleCompressionWrapper):
+class GPTQWrapper(ModuleCompressionWrapper):
     """
     Runs SparseGPT on a single module that contains no sub-modules
 
@@ -79,19 +79,12 @@ class SparseGptWrapper(ModuleCompressionWrapper):
 
     def fasterprune(
         self,
-        sparsity: float,
-        prunen: int = 0,
-        prunem: int = 0,
         blocksize: int = 128,
         percdamp: float = 0.01,
     ):
         """
-        Run pruning and quantization(if applicable) on the layer up to the target
-        sparsity value.
+        Run quantization(if applicable) on the layer.
 
-        :param sparsity: target sparsity to reach for layer
-        :param prunen: N for N:M pruning
-        :param prunem: M for N:M pruning
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
             diagonal norm
@@ -122,8 +115,6 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         self.H = torch.linalg.cholesky(self.H, upper=True)
         Hinv = self.H
 
-        mask = None
-
         # See section 3.4 of https://arxiv.org/abs/2203.07259
         for i1 in range(0, self.columns, blocksize):
             i2 = min(i1 + blocksize, self.columns)
@@ -135,34 +126,45 @@ class SparseGptWrapper(ModuleCompressionWrapper):
             Losses1 = torch.zeros_like(W1)
             Hinv1 = Hinv[i1:i2, i1:i2]
 
-            if prunen == 0:
-                if mask is not None:
-                    mask1 = mask[:, i1:i2]
-                else:
-                    tmp = W1**2 / (torch.diag(Hinv1).reshape((1, -1))) ** 2
-                    thresh = torch.sort(tmp.flatten())[0][int(tmp.numel() * sparsity)]
-                    mask1 = tmp <= thresh
-            else:
-                mask1 = torch.zeros_like(W1) == 1
-
             for i in range(count):
                 w = W1[:, i]
                 d = Hinv1[i, i]
 
-                if prunen != 0 and i % prunem == 0:
-                    tmp = (
-                        W1[:, i : (i + prunem)] ** 2
-                        / (torch.diag(Hinv1)[i : (i + prunem)].reshape((1, -1))) ** 2
-                    )
-                    mask1.scatter_(
-                        1, i + torch.topk(tmp, prunen, dim=1, largest=False)[1], True
-                    )
-
                 q = w.clone()
-                q[mask1[:, i]] = 0
 
-                while q.ndim > 1:
-                    q = q.squeeze()
+                if hasattr(self.layer, "weight_fake_quant"):
+                    scale = self.layer.weight_fake_quant.scale
+                    zero_point = self.layer.weight_fake_quant.zero_point
+                    dtype = self.layer.weight_fake_quant.dtype
+                    qscheme = self.layer.weight_fake_quant.qscheme
+                    if qscheme in [torch.per_tensor_affine, torch.per_tensor_symmetric]:
+                        q = torch.quantize_per_tensor(q, scale, zero_point, dtype)
+                    else:
+                        q = torch.quantize_per_channel(q, scale, zero_point, 0, dtype)
+                    q = torch.dequantize(q)
+                elif hasattr(self.layer, "quantization_scheme"):
+                    if self.layer.quantization_scheme.weights is not None:
+                        scale = self.layer.weight_scale
+                        zero_point = self.layer.weight_zero_point
+                        from compressed_tensors.quantization.lifecycle.forward import (
+                            fake_quantize,
+                        )
+
+                        while scale.ndim < 2:
+                            scale = scale.unsqueeze(1)
+                            zero_point = zero_point.unsqueeze(1)
+
+                        while q.ndim < 2:
+                            q = q.unsqueeze(1)
+                        q = fake_quantize(
+                            q,
+                            scale[:, i],
+                            zero_point[:, i],
+                            self.layer.quantization_scheme.weights,
+                        )
+
+                while q.ndim != 1:
+                    q.squeeze()
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
