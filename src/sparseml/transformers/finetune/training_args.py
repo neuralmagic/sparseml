@@ -66,7 +66,7 @@ class TrainingArguments(HFTrainingArgs):
         metadata={"help": "Device to run oneshot calibration on"},
     )
     clear_sparse_session: Optional[bool] = field(
-        default=True,
+        default=False,
         metadata={"help": "Whether to clear SparseSession data between runs."},
     )
     save_safetensors: Optional[bool] = field(
