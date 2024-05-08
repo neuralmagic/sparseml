@@ -68,6 +68,10 @@ jobs:
 
   # TODO: add release container build steps once 
   build-container-and-push:
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
     needs: set-outputs
     uses: ./.github/workflows/build-container.yml
     with:
