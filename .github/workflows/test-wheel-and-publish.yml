@@ -65,6 +65,12 @@ jobs:
       run: |
           pip3 install $FILENAME[dev]
 
+    - name: List
+      run: |
+          pwd
+          ls
+          echo "DIR=$(pwd)" >> $GITHUB_ENV
+
     - name: Checkout code
       uses: actions/checkout@v3
 
@@ -72,14 +78,12 @@ jobs:
       run: |
             rm -rf src
             make test
-
-    - name: Temp
+    
+    - name: List
       run: |
-            ls
-            cd ..
-            ls
+          cd $DIR
+          ls
 
-      
     - name: Publish Nightly Wheel
       if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
       uses: neuralmagic/nm-actions/actions/publish-whl@main
