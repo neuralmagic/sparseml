@@ -79,7 +79,7 @@ jobs:
       with:
         username: ${{ secrets.PYPI_PUBLIC_USER }}
         password: ${{ secrets.PYPI_PUBLIC_AUTH }}
-        whel: ./$FILENAME
+        whl: ./$FILENAME
 
 
     
