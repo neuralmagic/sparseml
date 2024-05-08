@@ -99,7 +99,7 @@ def test_oneshot_and_finetune_with_tokenizer(tmp_path: Path):
 
 
 def test_oneshot_then_finetune(tmp_path: Path):
-    recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
+    recipe_str = "tests/sparseml/transformers/obcq/recipes/test_tiny2.yaml"
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     if not torch.cuda.is_available():

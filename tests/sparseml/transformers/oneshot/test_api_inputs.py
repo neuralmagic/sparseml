@@ -18,11 +18,11 @@ import unittest
 import pytest
 
 from parameterized import parameterized_class
-from tests.sparseml.pytorch.oneshot.dataset_processing import get_data_utils
+from tests.sparseml.transformers.oneshot.dataset_processing import get_data_utils
 from tests.testing_utils import parse_params, requires_torch
 
 
-CONFIGS_DIRECTORY = "tests/sparseml/pytorch/oneshot/oneshot_configs"
+CONFIGS_DIRECTORY = "tests/sparseml/transformers/oneshot/oneshot_configs"
 
 # TODO: Seems better to mark test type (smoke, sanity, regression) as a marker as
 # opposed to using a field in the config file?

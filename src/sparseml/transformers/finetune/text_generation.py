@@ -85,8 +85,12 @@ def apply(**kwargs):
     """
     CLI entrypoint for any of training, eval, predict or oneshot
     """
+    report_to = kwargs.get("report_to", None)
     model_args, data_args, training_args = parse_args(**kwargs)
     training_args.run_stages = True
+    if report_to is None:  # user didn't specify any reporters
+        # get rid of the reporters inferred from hugging face
+        training_args.report_to = []
     main(model_args, data_args, training_args)
 
 
