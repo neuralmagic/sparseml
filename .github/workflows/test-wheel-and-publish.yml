@@ -72,6 +72,13 @@ jobs:
       run: |
             rm -rf src
             make test
+
+    - name: Temp
+      run: |
+            ls
+            cd ..
+            ls
+
       
     - name: Publish Nightly Wheel
       if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
