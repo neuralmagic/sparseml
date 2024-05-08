@@ -55,8 +55,8 @@ jobs:
     - name: Upload whl
       uses: actions/upload-artifact@v4
       with:
-        name: $FILENAME
-        path: $FILENAME
+        name: ${{ env.FILENAME }}
+        path: ${{ env.FILENAME }}
           
     - name: Push to internal pypi
       uses: neuralmagic/nm-actions/actions/upload-whl@main
@@ -83,8 +83,8 @@ jobs:
     - name: Download whl
       uses: actions/download-artifact@v4
       with:
-        name: $FILENAME
-        path: $FILENAME
+        name: ${{ env.FILENAME }}
+        path: ${{ env.FILENAME }}
 
     - name: Publish Nightly Wheel
       if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
