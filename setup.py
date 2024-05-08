@@ -120,7 +120,6 @@ _dev_deps = [
     "tensorboardX>=1.0",
     "evaluate>=0.4.1",
     "parameterized",
-    "clearml==1.14.4",
 ]
 
 _docs_deps = [
