@@ -64,4 +64,4 @@ jobs:
         with:
           context: ./docker/containers/docker_nightly
           push: true
-          tags: ghcr.io/neuralmagic/sparseml-nightly:latest
+          tags: ghcr.io/neuralmagic/sparseml-nightly
