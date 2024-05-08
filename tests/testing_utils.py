@@ -37,6 +37,9 @@ def is_torch_available():
 
 
 def is_gpu_available():
+    """
+    Check for GPU and warn if not found
+    """
     try:
         import torch  # noqa: F401
 
