@@ -17,6 +17,9 @@ on:
 jobs:
   build-container:
     runs-on: ${{ inputs.build-label }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
