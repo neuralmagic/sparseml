@@ -119,7 +119,7 @@ _dev_deps = [
     "tensorboard>=1.0,<2.9",
     "tensorboardX>=1.0",
     "evaluate>=0.4.1",
-    "parameterized"
+    "parameterized",
 ]
 
 _docs_deps = [
