@@ -204,7 +204,7 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                             )
 
                 while q.ndim > 1:
-                    q.squeeze()
+                    q = q.squeeze()
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
