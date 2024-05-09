@@ -1,7 +1,11 @@
 name: Run Nightly Tests
+on:
+  push:
+    branches:
+      - '*'
 jobs:
   test-nightly-tests:
-    runs-on: k8s-eng-gpu-64G-v100-32G # Should have multiple gpus enabled
+    runs-on: k8s-eng-gpu-16G-t4-32G # Should have multiple gpus enabled
     env:
       CADENCE: "nightly"
     steps:
