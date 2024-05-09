@@ -17,7 +17,7 @@ from typing import Dict, Optional
 from torch import Tensor
 from torch.nn import Module
 
-import sparseml.core.session as session_manager
+import sparseml
 from compressed_tensors import CompressionConfig
 from sparseml.pytorch.utils import ModuleSparsificationInfo
 
@@ -53,7 +53,7 @@ class SparsityConfigMetadata:
 
         :return: sparsity structure as a string
         """
-        current_session = session_manager.active_session()
+        current_session = sparseml.active_session()
         stage_modifiers = current_session.lifecycle.modifiers
         sparsity_structure = "unstructured"
 
