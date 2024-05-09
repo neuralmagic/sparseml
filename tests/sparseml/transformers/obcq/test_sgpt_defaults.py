@@ -21,7 +21,7 @@ from tests.testing_utils import requires_torch
 
 @pytest.mark.integration
 @requires_torch
-class TestSGPTDefualts(unittest.TestCase):
+class TestSGPTDefaults(unittest.TestCase):
     def test_sgpt_defaults(self):
         from sparseml.core.framework import Framework
         from sparseml.core.state import State
@@ -31,21 +31,37 @@ class TestSGPTDefualts(unittest.TestCase):
         sparsegpt_modifier_only_sparsity = SparseGPTModifier(
             framework=Framework.pytorch, **kwargs
         )
-        assert not sparsegpt_modifier_only_sparsity.quantize
+        assert not hasattr(sparsegpt_modifier_only_sparsity, "quantize")
         self.assertEqual(sparsegpt_modifier_only_sparsity.block_size, 128)
         self.assertEqual(sparsegpt_modifier_only_sparsity.sparsity, 0.5)
 
+        # fail if we don't pass a sparsity
+        kwargs = {}
+        sparsegpt_invalid = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
+        state_test = State(framework=Framework.pytorch)
+        sparsegpt_invalid.initialized_structure_ = True
+        with self.assertRaises(ValueError):
+            sparsegpt_invalid.on_initialize(state=state_test)
+
+
+@pytest.mark.integration
+@requires_torch
+class TestGPTQDefaults(unittest.TestCase):
+    def test_sgpt_defaults(self):
+        from sparseml.core.framework import Framework
+        from sparseml.core.state import State
+        from sparseml.modifiers.quantization.gptq import GPTQModifier
+
         kwargs = {"quantize": True}
-        sparsegpt_modifier_only_quant = SparseGPTModifier(
+        sparsegpt_modifier_only_quant = GPTQModifier(
             framework=Framework.pytorch, **kwargs
         )
         assert sparsegpt_modifier_only_quant.quantize
         self.assertEqual(sparsegpt_modifier_only_quant.block_size, 128)
-        self.assertEqual(sparsegpt_modifier_only_quant.sparsity, 0.0)
 
         # fail if we don't pass a sparsity or enable quantization
-        kwargs = {}
-        sparsegpt_invalid = SparseGPTModifier(framework=Framework.pytorch, **kwargs)
+        kwargs = {"quantize": False}
+        sparsegpt_invalid = GPTQModifier(framework=Framework.pytorch, **kwargs)
         state_test = State(framework=Framework.pytorch)
         sparsegpt_invalid.initialized_structure_ = True
         with self.assertRaises(ValueError):

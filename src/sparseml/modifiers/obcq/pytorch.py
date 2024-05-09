@@ -98,7 +98,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     def initialize_compression(
         self,
         model: ModifiableModel,
-        dataloader: Iterable[Tuple[List, Dict[str, Any]]],
+        dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
     ):
         """
         Setup for SparseGPT, initializes the model, block_size
@@ -147,7 +147,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             self.layer_compressors_.append(compressor)
 
     @torch.no_grad()
-    def apply_compression(self, dataloader: Iterable[Tuple[List, Dict[str, Any]]]):
+    def apply_compression(
+        self, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None
+    ):
         """
         Apply SparseGPT on the loaded model, using dataloader as calibration data
 
