@@ -92,6 +92,7 @@ class GPTQWrapper(ModuleCompressionWrapper):
         final_shape = self.layer.weight.shape
         final_dtype = self.layer.weight.dtype
         W = self.layer.weight.data.clone()
+        from sparseml.pytorch.utils.helpers import tensor_sparsity
 
         if isinstance(self.layer, nn.Conv2d):
             W = W.flatten(1)
@@ -115,6 +116,14 @@ class GPTQWrapper(ModuleCompressionWrapper):
         self.H = torch.linalg.cholesky(self.H, upper=True)
         Hinv = self.H
 
+        mask = torch.where(
+            W == 0,
+            torch.tensor(1, dtype=torch.bool),
+            torch.tensor(0, dtype=torch.bool),
+        )
+        sparsity = tensor_sparsity(W)
+
+
         # See section 3.4 of https://arxiv.org/abs/2203.07259
         for i1 in range(0, self.columns, blocksize):
             i2 = min(i1 + blocksize, self.columns)
@@ -126,11 +135,22 @@ class GPTQWrapper(ModuleCompressionWrapper):
             Losses1 = torch.zeros_like(W1)
             Hinv1 = Hinv[i1:i2, i1:i2]
 
+            tmp = (
+                (~mask[:, i1:i2])
+                * W1**2
+                / (torch.diag(Hinv1).reshape((1, -1))) ** 2
+            )
+            thresh = torch.sort(tmp.flatten())[0][
+                int(tmp.numel() * sparsity)
+            ]
+            mask1 = tmp <= thresh
+
             for i in range(count):
                 w = W1[:, i]
                 d = Hinv1[i, i]
 
                 q = w.clone()
+                q[mask1[:, i]] = 0
 
                 if hasattr(self.layer, "weight_fake_quant"):
                     scale = self.layer.weight_fake_quant.scale

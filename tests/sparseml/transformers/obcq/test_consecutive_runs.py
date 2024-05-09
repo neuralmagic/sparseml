@@ -114,7 +114,7 @@ class TestConsecutiveRunsSmall(TestConsecutiveRuns):
         self.output_second = Path(self.output) / "test_2"
 
     def test_consecutive_runs_small(self):
-        self._test_consecutive_runs(tolerance=1e-1)
+        self._test_consecutive_runs(tolerance=1e-3)
 
 
 @requires_gpu
