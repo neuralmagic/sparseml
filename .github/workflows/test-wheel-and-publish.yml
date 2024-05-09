@@ -42,12 +42,6 @@ jobs:
         filename: ${{ inputs.whl }}
         dst: dist_s3
 
-    - name: Set Env
-      run: |
-        pip3 install virtualenv
-        virtualenv venv
-        source venv/bin/activate
-  
     - name: Fetch name of whl
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
