@@ -23,7 +23,7 @@ concurrency:
 # if not dev or release, will create a nightly build; turning off release for not
 env:
   PRODUCTION: ${{ github.event_name == 'schedule' || github.event_name == 'release'}}
-  RELEASE: false
+  RELEASE: 'false'
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
 
 jobs:
@@ -52,7 +52,7 @@ jobs:
       python: '3.10'
     secrets: inherit
 
-   test-wheel-and-publish:
+  test-wheel-and-publish:
     needs: [set-outputs, build-wheel-and-push]
     uses: ./.github/workflows/test-wheel-and-publish.yml
     with:
