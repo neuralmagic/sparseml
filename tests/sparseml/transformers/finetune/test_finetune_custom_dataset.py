@@ -3,6 +3,9 @@ import unittest
 import os
 import pytest
 import tempfile
+import json
+from io import StringIO
+import csv
 
 from parameterized import parameterized_class
 from tests.testing_utils import parse_params, requires_gpu, requires_torch
@@ -13,12 +16,12 @@ CONFIGS_DIRECTORY = "tests/sparseml/transformers/finetune/finetune_custom"
 GPU_CONFIGS_DIRECTORY = "tests/sparseml/transformers/finetune/finetune_custom/gpu"
 
 class TestFinetuneCustomDataset(unittest.TestCase):
-    def test_finetune_wout_recipe_custom_dataset(self):
+    def _test_finetune_wout_recipe_custom_dataset(self):
         from sparseml.transformers import train
 
         dataset_path = Path(tempfile.mkdtemp())
 
-        created_success = _create_mock_custom_dataset_folder_structure(
+        created_success = self._create_mock_custom_dataset_folder_structure(
             dataset_path, self.file_extension
         )
         assert created_success
@@ -43,31 +46,31 @@ class TestFinetuneCustomDataset(unittest.TestCase):
         )
 
 
-    def _create_mock_custom_dataset_folder_structure(tmp_dir_data, file_extension):
+    def _create_mock_custom_dataset_folder_structure(self, tmp_dir_data, file_extension):
         train_path = os.path.join(tmp_dir_data, "train")
         test_path = os.path.join(tmp_dir_data, "test")
         validate_path = os.path.join(tmp_dir_data, "validate")
 
         # create tmp mock data files
-        create_mock_file(
+        self.create_mock_file(
             extension=file_extension,
             content="text for train data 1",
             path=train_path,
             filename="data1",
         )
-        create_mock_file(
+        self.create_mock_file(
             extension=file_extension,
             content="text for train data 2",
             path=train_path,
             filename="data2",
         )
-        create_mock_file(
+        self.create_mock_file(
             extension=file_extension,
             content="text for test data 1",
             path=test_path,
             filename="data3",
         )
-        create_mock_file(
+        self.create_mock_file(
             extension=file_extension,
             content="text for validate data 1",
             path=validate_path,
@@ -75,9 +78,7 @@ class TestFinetuneCustomDataset(unittest.TestCase):
         )
         return True
 
-
-    def create_mock_file(extension, content, path, filename):
-
+    def create_mock_file(self, extension, content, path, filename):
         os.makedirs(path, exist_ok=True)
 
         if extension == "json":
@@ -113,12 +114,12 @@ class TestOneshotCustomDatasetSmall(TestFinetuneCustomDataset):
   
     def setUp(self):
         import torch 
+        
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.output = "./oneshot_output"
     
     def test_oneshot_then_finetune_small(self):
-        self._test_oneshot_and_finetune()
-
+        self._test_finetune_wout_recipe_custom_dataset()
 
 @requires_gpu
 @pytest.mark.integration
@@ -130,7 +131,7 @@ class TestOneshotCustomDatasetGPU(TestFinetuneCustomDataset):
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM
 
-        self.device = "cuda:0" 
+        self.device = "auto" 
         self.output = "./oneshot_output"
 
         if "zoo:" in self.model:
@@ -139,7 +140,4 @@ class TestOneshotCustomDatasetGPU(TestFinetuneCustomDataset):
             )
     
     def test_oneshot_then_finetune_gpu(self):
-        self._test_oneshot_and_finetune()
-
-       
-
+        self._test_finetune_wout_recipe_custom_dataset()

@@ -63,7 +63,7 @@ class TestOneshotAndFinetuneGPU(TestOneshotAndFinetune):
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM
 
-        self.device = "cuda:0" 
+        self.device = "auto" 
         self.output = "./oneshot_output"
 
         if "zoo:" in self.model:
