@@ -17,6 +17,7 @@ jobs:
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
       - name: Run integration tests 
         run: |
+          export CADENCE="nightly"
           pytest tests/sparseml/pytorch -m integeration
           pytest tests/sparseml/transformers -m integeration
       
