@@ -46,14 +46,36 @@ class GPTQModifierPyTorch(GPTQModifier):
                 - LayerCompressor.revert_layer_wrappers()
 
     | Sample yaml:
-    |   test_stage:
-    |       obcq_modifiers:
-    |           GPTQModifier:
-    |               sequential_update: True
-    |               dampening_frac: 0.001
-    |               targets: __ALL__
-    |               block_size: 128
-    |               quantize: True
+    | test_stage:
+    |    obcq_modifiers:
+    |      GPTQModifier:
+    |          ignore:
+    |            - "LlamaRotaryEmbedding"
+    |            - "LlamaRMSNorm"
+    |            - "SiLUActivation"
+    |            - "MatMulLeftInput_QK"
+    |            - "MatMulRightInput_QK"
+    |            - "MatMulLeftInput_PV"
+    |            - "MatMulRightInput_PV"
+    |            - "MatMulOutput_QK"
+    |            - "MatMulOutput_PV"
+    |            - "lm_head"
+    |            - "Embedding"
+    |          sequential_update: True
+    |          dampening_frac: 0.001
+    |          block_size: 128
+    |          config_groups:
+    |            group_0:
+    |                targets:
+    |                  - "Linear"
+    |                input_activations: null
+    |                output_activations: null
+    |                weights:
+    |                    num_bits: 8
+    |                    type: "int"
+    |                    symmetric: true
+    |                    strategy: "tensor"
+    |                    group_size: 128
 
     :param model: Pytorch model to perform GPTQ on, in place.
     """

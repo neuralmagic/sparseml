@@ -15,6 +15,9 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+from pydantic import Field
+
+from compressed_tensors.quantization import QuantizationScheme
 from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.model.base import ModifiableModel
@@ -53,6 +56,19 @@ class GPTQModifier(Modifier):
         in the recipe
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
+    :param config_groups: [Used, if a quantization modifier is not specified],
+        dictionary specifying quantization schemes to apply to target
+        modules. Modules not matching a scheme target will NOT be quantized.
+    :param ignore: [Used, if a quantization modifier is not specified]
+        optional list of module class names or submodule names to not
+        quantize even if they match a target in config_groups. Defaults to empty list.
+    :param disable_quantization_observer_epoch: [Used, if a quantization modifier is
+        not specified] Epoch to disable updates to the module
+        quantization observers. At this point, quantized weights and zero points will
+        not be updated. Leave None to not disable observers during QAT. Default is None
+    :param num_calibration_steps: [Used, if a quantization modifier is not specified]
+        Number of steps to run post training calibration for.
+        When None, the entire calibration_dataloader is used
     """
 
     sequential_update: Optional[bool] = False
@@ -61,6 +77,10 @@ class GPTQModifier(Modifier):
     block_size: int = 128
     quantize: Union[bool, Dict] = True
     dampening_frac: Optional[float] = 0.01
+    config_groups: Optional[Dict[str, QuantizationScheme]] = None
+    ignore: List[str] = Field(default_factory=list)
+    disable_quantization_observer_epoch: Optional[float] = None
+    num_calibration_steps: Optional[int] = None
     quantization_modifier_: Any = None
 
     def on_initialize_structure(self, state: State, **kwargs):
@@ -82,13 +102,9 @@ class GPTQModifier(Modifier):
             elif self.quantize and not quantization_already_active:
                 _LOGGER.warning(
                     "GPTQ quantization is set to True without an "
-                    "active quantization modifier. Creating a default "
-                    "8-bit quantization modifier"
+                    "active quantization modifier."
                 )
-                default_quant_config = {"QuantizationModifier": {}}
-                self._build_quant_modifier_from_dict(
-                    default_quant_config, state.framework
-                )
+                self._build_quant_modifier(state.framework)
             return  # use existing quantization modifier if there is one
         else:
             if not isinstance(self.quantize, Dict):
@@ -117,6 +133,32 @@ class GPTQModifier(Modifier):
 
         if self.quantization_modifier_:
             self.quantization_modifier_.on_initialize_structure(state, **kwargs)
+
+    def _build_quant_modifier(self, framework):
+        """
+        Build a quantization modifier based on the specified config_groups,
+        ignore list, and num_calibration_steps.
+
+        :postcondition: self.quantization_modifier_ is set to the built
+            quantization modifier
+        :param framework: the framework to build the quantization modifier for
+        """
+
+        quantization_args_names = [
+            "config_groups",
+            "num_calibration_steps",
+            "ignore",
+            "disable_quantization_observer_epoch",
+        ]
+
+        quant_args = {
+            key: getattr(self, key)
+            for key in quantization_args_names
+            if getattr(self, key, False)
+        }
+        _LOGGER.info(f"Building quantization modifier with args: {quant_args}")
+        vllm_quant_config = {"vLLMQuantizationModifier": quant_args}
+        self._build_quant_modifier_from_dict(vllm_quant_config, framework)
 
     def compressible_layers(self) -> Dict:
         """
