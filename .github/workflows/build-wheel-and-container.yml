@@ -4,7 +4,7 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-  push: # TODO: do we want to push to nightly everytime we push to main?
+  push: 
     branches:
       - main
   schedule:
@@ -19,6 +19,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# TODO: do we want to push to nightly everytime we push to main?
 # if not dev or release, will create a nightly build; turning off release for not
 env:
   PRODUCTION: ${{ github.event_name == 'schedule' || github.event_name == 'release'}}
