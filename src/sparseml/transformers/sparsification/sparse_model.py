@@ -31,11 +31,6 @@ from transformers import (
 from transformers.file_utils import WEIGHTS_NAME
 
 from compressed_tensors.compressors import ModelCompressor
-from compressed_tensors.quantization import (
-    QuantizationConfig,
-    apply_quantization_config,
-    load_pretrained_quantization,
-)
 from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
@@ -105,11 +100,8 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, **kwargs
         )
 
-        # determine compression format, if any, from the model config
+        # instantiate compressor from model config
         compressor = ModelCompressor.from_pretrained(pretrained_model_name_or_path)
-        quantization_config = QuantizationConfig.from_model_config(
-            pretrained_model_name_or_path
-        )
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
@@ -123,18 +115,13 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
 
-        # If model is compressed on disk, decompress and load the weights
+        # If model is quantized or compressed on disk, initialize quantization
+        # structure and run decompression
         if compressor is not None:
-            # decompress weights
-            compressor.overwrite_weights(
-                model_path=pretrained_model_name_or_path, model=model
-            )
-
-        if quantization_config is not None:
-            # if we loaded from a HF stub, find the cached model
-            apply_quantization_config(model, quantization_config)
-            load_pretrained_quantization(model, pretrained_model_name_or_path)
+            # initialize quantization and decompress weights
+            compressor.decompress(model_path=pretrained_model_name_or_path, model=model)
         else:
+            # legacy loading for old quantization modifier
             recipe = resolve_recipe(
                 recipe=recipe, model_path=pretrained_model_name_or_path
             )
