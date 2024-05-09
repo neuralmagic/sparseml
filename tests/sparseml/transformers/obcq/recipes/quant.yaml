@@ -23,13 +23,10 @@ test_stage:
           weights:
             num_bits: 8
             symmetric: False
-    SparseGPTModifier:
-      sparsity: 0.0
+    GPTQModifier:
       block_size: 128
       sequential_update: False
-      quantize: True
       percdamp: 0.01
-      mask_structure: "0:0"
       targets: [
         "model.layers.0",
         "model.layers.1",

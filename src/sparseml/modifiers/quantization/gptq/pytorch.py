@@ -19,8 +19,8 @@ import torch
 
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
-from sparseml.modifiers.gptq.base import GPTQModifier
-from sparseml.modifiers.gptq.utils.gptq_wrapper import GPTQWrapper
+from sparseml.modifiers.quantization.gptq.base import GPTQModifier
+from sparseml.modifiers.quantization.gptq.utils.gptq_wrapper import GPTQWrapper
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 

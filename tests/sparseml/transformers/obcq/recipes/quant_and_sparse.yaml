@@ -28,7 +28,6 @@ test_stage:
       sparsity: 0.5
       block_size: 128
       sequential_update: False
-      quantize: True
       percdamp: 0.01
       mask_structure: "0:0"
       targets: [
@@ -39,3 +38,15 @@ test_stage:
         "model.layers.4",
         "model.layers.5"
       ]
+    GPTQModifier:
+      sequential_update: False
+      dampening_frac: 0.01
+      targets: [
+        "model.layers.0",
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5"
+      ]
+      block_size: 128
