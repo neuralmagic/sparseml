@@ -25,6 +25,7 @@ except ImportError as err:
 
 import logging
 import math
+from copy import copy
 
 import torch
 import torch.nn as nn
@@ -190,28 +191,34 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                                 zero_point,
                                 self.layer.quantization_scheme.weights,
                             )
-                        else:
-                            while scale.ndim < 2:
-                                scale = scale.unsqueeze(scale.ndim)
-                                zero_point = zero_point.unsqueeze(zero_point.ndim)
-
-                            while q.ndim < 2:
-                                q = q.unsqueeze(q.ndim)
-
-                            input_dim_group = (
-                                i // quant_scheme.weights.group_size
-                                if strategy == QuantizationStrategy.GROUP
-                                else 0  # assume channelwise - each channel has 1 group
+                        elif strategy == QuantizationStrategy.CHANNEL:
+                            # TODO: for channelwise why isn't this just a 1d tensor?
+                            q = fake_quantize(
+                                q,
+                                scale[:, 0],
+                                zero_point[:, 0],
+                                quant_scheme.weights,
                             )
+                        else:  # strategy == QuantizationStrategy.CHANNEL
+                            # TODO: for grouped quantization its always 3d but the last
+                            # dim is always 1. Can we just make it 2d instead and avoid?
+                            scale = scale[:, :, 0]
+                            zero_point = zero_point[:, :, 0]
+
+                            # get the group index for the current column
+                            input_dim_group = i // quant_scheme.weights.group_size
+
+                            # TODO: currently need to convert q to 2d and back to work
+                            # group quantization, a better solution would be to fix this
+                            # in the compressed-tensors grouped forward pass
+                            q = q.unsqueeze(q.ndim)
                             q = fake_quantize(
                                 q,
                                 scale[:, input_dim_group],
                                 zero_point[:, input_dim_group],
-                                self.layer.quantization_scheme.weights,
+                                quant_scheme.weights,
                             )
-
-                while q.ndim > 1:
-                    q = q.squeeze()
+                            q = q.squeeze(1)
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
