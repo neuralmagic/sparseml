@@ -181,7 +181,9 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                             fake_quantize,
                         )
 
-                        if quant_scheme.weights.strategy == QuantizationStrategy.TENSOR:
+                        strategy = quant_scheme.weights.strategy
+
+                        if strategy == QuantizationStrategy.TENSOR:
                             q = fake_quantize(
                                 q,
                                 scale,
@@ -196,10 +198,15 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                             while q.ndim < 2:
                                 q = q.unsqueeze(q.ndim)
 
+                            input_dim_group = (
+                                i // quant_scheme.weights.group_size
+                                if strategy == QuantizationStrategy.GROUP
+                                else 0  # assume channelwise - each channel has 1 group
+                            )
                             q = fake_quantize(
                                 q,
-                                scale[:, i],
-                                zero_point[:, i],
+                                scale[:, input_dim_group],
+                                zero_point[:, input_dim_group],
                                 self.layer.quantization_scheme.weights,
                             )
 
