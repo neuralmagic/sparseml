@@ -53,7 +53,9 @@ def requires_torch(test_case):
 
 
 def requires_gpu(test_case):
-    print("GPU", is_gpu_available())
+    import torch 
+
+    print("GPU", is_gpu_available(), torch.cuda.is_available())
     return unittest.skipUnless(is_gpu_available(), "test requires GPU")(test_case)
 
 
