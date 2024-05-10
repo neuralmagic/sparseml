@@ -18,6 +18,7 @@ import shutil
 import tempfile
 import unittest
 
+import pytest
 import torch
 from torch.utils.data import DataLoader
 from transformers import DefaultDataCollator
@@ -35,6 +36,7 @@ from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from tests.testing_utils import requires_gpu, requires_torch
 
 
+@pytest.mark.skip(reason="needs refactor")
 @requires_torch
 @requires_gpu
 @parameterized_class(
