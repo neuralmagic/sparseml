@@ -33,5 +33,5 @@ jobs:
       - name: Run integration tests 
         run: |
           export CADENCE="nightly"
-          pytest tests/sparseml/transformers -m integeration
+          pytest tests/sparseml/transformers -m integration
       
