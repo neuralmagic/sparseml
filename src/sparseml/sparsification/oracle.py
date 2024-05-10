@@ -20,8 +20,7 @@ Sparsification oracle functions for generating SparseML recipes from models
 import logging
 from typing import Any, Dict, List, Optional, Type
 
-from sparseml import Framework, execute_in_sparseml_framework
-from sparseml.base import detect_frameworks
+from sparseml.base import Framework, detect_frameworks, execute_in_sparseml_framework
 from sparseml.sparsification.analyzer import Analyzer
 from sparseml.sparsification.recipe_builder import PruningRecipeBuilder
 from sparseml.sparsification.recipe_editor import run_avaialble_recipe_editors

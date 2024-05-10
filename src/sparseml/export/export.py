@@ -70,7 +70,7 @@ from typing import Any, List, Optional, Union
 import numpy
 
 import click
-import sparseml.core.session as session_manager
+from sparseml.core.session import reset_session
 from sparseml.export.helpers import (
     AVAILABLE_DEPLOYMENT_TARGETS,
     ONNX_MODEL_NAME,
@@ -192,8 +192,7 @@ def export(
     opset = opset or TORCH_DEFAULT_ONNX_OPSET
 
     # start a new SparseSession for potential recipe application
-    session_manager.create_session()
-    session_manager.active_session().reset()
+    reset_session()
 
     if source_path is not None and model is not None:
         raise ValueError(
@@ -269,7 +268,7 @@ def export(
 
     # once model is loaded we can clear the SparseSession, it was only needed for
     # adding structural changes (ie quantization) to the model
-    session_manager.active_session().reset()
+    reset_session()
 
     _LOGGER.info("Creating data loader for the export...")
     if tokenizer is not None:

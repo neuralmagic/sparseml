@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader, IterableDataset
 from transformers.trainer_callback import TrainerState
 from transformers.trainer_utils import get_last_checkpoint
 
-import sparseml.core.session as session_manager
+import sparseml
 from sparseml.core.framework import Framework
 from sparseml.core.session import callbacks
 from sparseml.pytorch.model_load.helpers import RECIPE_FILE_NAME, get_session_model
@@ -91,7 +91,7 @@ class SessionManagerMixIn:
 
         # setup logger and session
         self.logger_manager = LoggerManager(log_python=False)
-        session_manager.create_session()
+        sparseml.create_session()
 
         # call Trainer initialization
         super().__init__(**kwargs)
@@ -131,7 +131,7 @@ class SessionManagerMixIn:
         :param checkpoint: Optional checkpoint to initialize from to continue training
         :param stage: Optional stage of recipe to run, or None to run all stages
         """
-        session = session_manager.active_session()
+        session = sparseml.active_session()
         if session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
@@ -139,7 +139,7 @@ class SessionManagerMixIn:
 
         self.accelerator.wait_for_everyone()
         with summon_full_params_context(self.model, offload_to_cpu=True):
-            session_manager.initialize(
+            sparseml.initialize(
                 model=self.model,
                 teacher_model=self.teacher,  # TODO: what about for self/disable?
                 recipe=self.recipe,
@@ -172,11 +172,11 @@ class SessionManagerMixIn:
 
         :param stage: Optional stage of recipe to run, or None to run all stages
         """
-        session = session_manager.active_session()
+        session = sparseml.active_session()
         if session.lifecycle.initialized_:
             return False
 
-        session_manager.pre_initialize_structure(
+        sparseml.pre_initialize_structure(
             model=self.model,
             recipe=self.recipe,
             recipe_stage=stage,
@@ -190,13 +190,13 @@ class SessionManagerMixIn:
         """
         Wrap up training by finalizing all modifiers initialized in the current session
         """
-        session = session_manager.active_session()
+        session = sparseml.active_session()
         if not session.lifecycle.initialized_ or session.lifecycle.finalized:
             return False
 
         with summon_full_params_context(self.model, offload_to_cpu=True):
             # in order to update each layer we need to gathers all its parameters
-            session_manager.finalize()
+            sparseml.finalize()
         _LOGGER.info("Finalized SparseML session")
         model = get_session_model()
         self.model = model
@@ -232,7 +232,7 @@ class SessionManagerMixIn:
                 len(self.train_dataset) / total_batch_size
             )
 
-        session_manager.initialize(
+        sparseml.initialize(
             optimizer=self.optimizer, steps_per_epoch=self.total_steps_per_epoch
         )
 
@@ -304,7 +304,7 @@ class SessionManagerMixIn:
             log["step_loss"] = loss.item()
             log["perplexity"] = torch.exp(loss).item()
 
-        if session_manager.active_session().lifecycle.initialized_:
+        if sparseml.active_session().lifecycle.initialized_:
             state = callbacks.loss_calculated(loss=loss)
             if state and state.loss is not None:
                 loss = state.loss
@@ -406,7 +406,7 @@ class SessionManagerMixIn:
         :param stage: which stage of the recipe to run, or None to run whole recipe
         :param calib_data: dataloader of calibration data
         """
-        session_manager.apply(
+        sparseml.apply(
             framework=Framework.pytorch,
             recipe=self.recipe,
             recipe_stage=stage,
@@ -432,7 +432,7 @@ class SessionManagerMixIn:
 
         :param output_dir: the path to save the recipes into
         """
-        if session_manager.active_session() is None:
+        if sparseml.active_session() is None:
             return  # nothing to save
 
         if output_dir is None:
@@ -464,7 +464,7 @@ class SessionManagerMixIn:
             # save recipe, will contain modifiers from the model's original recipe as
             # well as those added from self.recipe
             recipe_path = os.path.join(output_dir, RECIPE_FILE_NAME)
-            session = session_manager.active_session()
+            session = sparseml.active_session()
             recipe_yaml_str = session.get_serialized_recipe()
             with open(recipe_path, "w") as fp:
                 fp.write(recipe_yaml_str)

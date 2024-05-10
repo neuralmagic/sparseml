@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 import torch
 
+import sparseml
 from sparseml.modifiers.obcq.base import SparseGPTModifier
 from sparseml.transformers import (
     SparseAutoModelForCausalLM,
@@ -98,7 +99,7 @@ def test_oneshot_and_finetune_with_tokenizer(tmp_path: Path):
 
 
 def test_oneshot_then_finetune(tmp_path: Path):
-    recipe_str = "tests/sparseml/transformers/obcq/test_tiny2.yaml"
+    recipe_str = "tests/sparseml/transformers/obcq/recipes/test_tiny2.yaml"
     model = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     if not torch.cuda.is_available():
@@ -109,16 +110,17 @@ def test_oneshot_then_finetune(tmp_path: Path):
     output_dir = tmp_path / "oneshot_out"
     splits = {"calibration": "train[:10%]"}
 
-    oneshot(
-        model=model,
-        dataset=dataset,
-        output_dir=output_dir,
-        num_calibration_samples=num_calibration_samples,
-        recipe=recipe_str,
-        concatenate_data=concatenate_data,
-        splits=splits,
-        oneshot_device=device,
-    )
+    with sparseml.create_session():
+        oneshot(
+            model=model,
+            dataset=dataset,
+            output_dir=output_dir,
+            num_calibration_samples=num_calibration_samples,
+            recipe=recipe_str,
+            concatenate_data=concatenate_data,
+            splits=splits,
+            oneshot_device=device,
+        )
 
     recipe_str = "tests/sparseml/transformers/finetune/test_finetune_recipe.yaml"
     model = tmp_path / "oneshot_out"
@@ -128,17 +130,18 @@ def test_oneshot_then_finetune(tmp_path: Path):
     splits = "train[:50%]"
     max_steps = 50
 
-    train(
-        model=model,
-        distill_teacher="Xenova/llama2.c-stories15M",
-        dataset=dataset,
-        output_dir=output_dir,
-        num_calibration_samples=num_calibration_samples,
-        recipe=recipe_str,
-        concatenate_data=concatenate_data,
-        splits=splits,
-        max_steps=max_steps,
-    )
+    with sparseml.create_session():
+        train(
+            model=model,
+            distill_teacher="Xenova/llama2.c-stories15M",
+            dataset=dataset,
+            output_dir=output_dir,
+            num_calibration_samples=num_calibration_samples,
+            recipe=recipe_str,
+            concatenate_data=concatenate_data,
+            splits=splits,
+            max_steps=max_steps,
+        )
 
 
 def test_finetune_without_recipe(tmp_path: Path):
