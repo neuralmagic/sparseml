@@ -208,17 +208,16 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                             # get the group index for the current column
                             input_dim_group = i // quant_scheme.weights.group_size
 
-                            # TODO: currently need to convert q to 2d and back to work
-                            # group quantization, a better solution would be to fix this
-                            # in the compressed-tensors grouped forward pass
-                            q = q.unsqueeze(q.ndim)
+                            # Since we're only applying quantization to a slice, this
+                            # ends up being a channelwise application
+                            altered_qargs = copy(quant_scheme.weights)
+                            altered_qargs.strategy = QuantizationStrategy.CHANNEL
                             q = fake_quantize(
                                 q,
                                 scale[:, input_dim_group],
                                 zero_point[:, input_dim_group],
-                                quant_scheme.weights,
+                                altered_qargs,
                             )
-                            q = q.squeeze(1)
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
