@@ -25,7 +25,7 @@ import datasets
 import transformers
 from transformers import AutoConfig, DefaultDataCollator, HfArgumentParser, set_seed
 
-import sparseml.core.session as session_manager
+from sparseml import pre_initialize_structure, reset_session
 from sparseml.core.framework import Framework
 from sparseml.core.recipe import Recipe, StageRunType
 from sparseml.pytorch.model_load.helpers import (
@@ -48,14 +48,6 @@ from sparseml.transformers.utils.helpers import detect_last_checkpoint
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-
-metadata_args = [
-    "per_device_train_batch_size",
-    "per_device_eval_batch_size",
-    "max_seq_length",
-    "save_safetensors",
-    "fp16",
-]
 
 
 def train(**kwargs):
@@ -93,8 +85,12 @@ def apply(**kwargs):
     """
     CLI entrypoint for any of training, eval, predict or oneshot
     """
+    report_to = kwargs.get("report_to", None)
     model_args, data_args, training_args = parse_args(**kwargs)
     training_args.run_stages = True
+    if report_to is None:  # user didn't specify any reporters
+        # get rid of the reporters inferred from hugging face
+        training_args.report_to = []
     main(model_args, data_args, training_args)
 
 
@@ -133,10 +129,6 @@ def parse_args(**kwargs):
                 key, value = recipe_arg.split("=")
                 arg_dict[key] = value
             training_args.recipe_args = arg_dict
-
-    # when set to true in FSDP mode this causes issues, the model arguments show up
-    # as *args and **kwargs so all columns get removed
-    training_args.remove_unused_columns = False
 
     return model_args, data_args, training_args
 
@@ -312,17 +304,14 @@ def main(
     if isinstance(tokenizer, str) or tokenizer is None:
         tokenizer = initialize_tokenizer_from_path(model_args, model, teacher)
 
-    session_manager.pre_initialize_structure(model=model, framework=Framework.pytorch)
+    pre_initialize_structure(model=model, framework=Framework.pytorch)
 
     # intialize session manager
     apply_recipe_structure_to_model(model, None, model_path)
 
     # Load datasets
     stage_runner = StageRunner(
-        model_args=model_args,
-        data_args=data_args,
-        training_args=training_args,
-        model=model,
+        model_args=model_args, data_args=data_args, training_args=training_args
     )
     stage_runner.populate_datasets(tokenizer=tokenizer)
     train_dataset = stage_runner.get_dataset_split("train")
@@ -334,9 +323,7 @@ def main(
     trainer = Trainer(
         model_init=get_session_model,
         teacher=teacher,
-        model_state_path=model_path,
         recipe=training_args.recipe,
-        metadata_args=metadata_args,
         recipe_args=training_args.recipe_args,
         args=training_args,
         data_args=data_args,
@@ -345,8 +332,6 @@ def main(
         tokenizer=tokenizer,
         data_collator=data_collator,
     )
-    if trainer.is_fsdp_enabled:
-        trainer._prepare_model_for_fsdp()
     stage_runner.trainer = trainer
 
     # alternating Training/One-shot
@@ -382,7 +367,7 @@ def main(
 
     # Clean up the SparseSession before exit if requested
     if training_args.clear_sparse_session:
-        session_manager.active_session().reset()
+        reset_session()
 
 
 if __name__ == "__main__":

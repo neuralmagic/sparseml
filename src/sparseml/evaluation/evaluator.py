@@ -15,7 +15,7 @@
 
 from typing import Optional
 
-from sparseml.core.utils import session_context_manager
+from sparseml.core.session import create_session
 from sparseml.evaluation.registry import SparseMLEvaluationRegistry
 from sparsezoo.evaluation.results import Result
 
@@ -44,7 +44,7 @@ def evaluate(
     :param batch_size: The batch size to use for evals, defaults to 1
     :return: The evaluation result as a Result object
     """
-    with session_context_manager():
+    with create_session():
         eval_integration = SparseMLEvaluationRegistry.resolve(
             name=integration, datasets=datasets
         )

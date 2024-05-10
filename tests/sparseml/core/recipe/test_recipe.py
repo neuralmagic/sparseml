@@ -41,7 +41,8 @@ def test_recipe_create_instance_accepts_valid_recipe_file(recipe_str):
 @pytest.mark.parametrize("recipe_str", valid_recipe_strings())
 def test_serialization(recipe_str):
     recipe_instance = Recipe.create_instance(recipe_str)
-    recipe_from_serialized = Recipe.create_instance(recipe_instance.yaml())
+    serialized_recipe = recipe_instance.yaml()
+    recipe_from_serialized = Recipe.create_instance(serialized_recipe)
 
     expected_dict = recipe_instance.dict()
     actual_dict = recipe_from_serialized.dict()

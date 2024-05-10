@@ -70,7 +70,7 @@ from typing import Any, List, Optional, Union
 import numpy
 
 import click
-import sparseml.core.session as session_manager
+from sparseml.core.session import reset_session
 from sparseml.export.helpers import (
     AVAILABLE_DEPLOYMENT_TARGETS,
     ONNX_MODEL_NAME,
@@ -90,6 +90,7 @@ def export(
     source_path: Union[Path, str] = None,
     target_path: Union[Path, str, None] = None,
     model: Optional["torch.nn.Module"] = None,  # noqa F401
+    tokenizer: Optional["PreTrainedTokenizer"] = None,  # noqa F401
     onnx_model_name: str = ONNX_MODEL_NAME,
     deployment_target: str = "deepsparse",
     opset: Optional[int] = None,
@@ -134,11 +135,9 @@ def export(
         will default to source_path
     :param model: The PyTorch model to export. If provided, the source_path
         should be set to None to avoid potential confusion and entaglement
-        of sources. This means that, the full
-        export logic will not be enforced (e.g. the final deployment directory
-        will not be complete, it will not be possible to run validate_structure
-        method or apply some optimizations that require complete deployment
-        directory structure)
+        of sources
+    :param tokenizer: An optional tokenizer to export if passing in a source through
+    the model argument. This argument takes no effect if a source_path is provided
     :param onnx_model_name: The name of the exported model.
         Defaults to ONNX_MODEL_NAME.
     :param deployment_target: The deployment target to export
@@ -184,6 +183,7 @@ def export(
     from sparseml.export.validators import validate_structure as validate_structure_
     from sparseml.integration_helper_functions import (
         IntegrationHelperFunctions,
+        remove_past_key_value_support_from_config,
         resolve_integration,
     )
     from sparseml.pytorch.opset import TORCH_DEFAULT_ONNX_OPSET
@@ -192,8 +192,7 @@ def export(
     opset = opset or TORCH_DEFAULT_ONNX_OPSET
 
     # start a new SparseSession for potential recipe application
-    session_manager.create_session()
-    session_manager.active_session().reset()
+    reset_session()
 
     if source_path is not None and model is not None:
         raise ValueError(
@@ -206,8 +205,18 @@ def export(
         source_path = process_source_path(source_path)
         if target_path is None:
             target_path = source_path
+        if tokenizer is not None:
+            _LOGGER.warning(
+                "Passed a tokenizer is not supported when exporting from ",
+                "a source path. The tokenizer will be ignored. ",
+            )
 
-    integration = resolve_integration(source_path, integration)
+    if model is not None and hasattr(model, "config"):
+        model.config = remove_past_key_value_support_from_config(model.config)
+
+    integration = resolve_integration(
+        source_path=source_path, source_model=model, integration=integration
+    )
     _LOGGER.info(f"Starting export for {integration} model...")
 
     if target_path is None:
@@ -259,9 +268,11 @@ def export(
 
     # once model is loaded we can clear the SparseSession, it was only needed for
     # adding structural changes (ie quantization) to the model
-    session_manager.active_session().reset()
+    reset_session()
 
     _LOGGER.info("Creating data loader for the export...")
+    if tokenizer is not None:
+        loaded_model_kwargs["tokenizer"] = tokenizer
     data_loader, loaded_data_loader_kwargs = helper_functions.create_data_loader(
         model=model,
         task=task,
@@ -323,6 +334,8 @@ def export(
 
     deployment_folder_dir = create_deployment_folder(
         source_path=source_path,
+        source_config=getattr(model, "config", None),
+        source_tokenizer=tokenizer,
         target_path=target_path,
         deployment_directory_name=deployment_directory_name,
         deployment_directory_files_mandatory=helper_functions.deployment_directory_files_mandatory,  # noqa: E501

@@ -23,10 +23,7 @@ import torch
 
 from huggingface_hub import snapshot_download
 from sparseml import export
-from sparseml.transformers import SparseAutoConfig, SparseAutoModelForCausalLM
-from sparseml.transformers.utils.helpers import (
-    remove_past_key_value_support_from_config,
-)
+from sparseml.transformers import SparseAutoModelForCausalLM, SparseAutoTokenizer
 
 
 @pytest.mark.parametrize(
@@ -45,25 +42,15 @@ class TestEndToEndExport:
 
         shutil.rmtree(tmp_path)
 
-    def test_export_initialized_model_no_source_path(self, setup):
+    def test_export_initialized_model_no_source_path(self, tmp_path, stub, task):
         # export the transformer model, that is being passed to the
         # `export` API directly as an object
-        source_path, target_path, task = setup
-        config = remove_past_key_value_support_from_config(
-            SparseAutoConfig.from_pretrained(source_path)
-        )
+        target_path = tmp_path / "target"
         export(
-            model=SparseAutoModelForCausalLM.from_pretrained(
-                source_path, config=config
-            ),
+            model=SparseAutoModelForCausalLM.from_pretrained(stub),
+            tokenizer=SparseAutoTokenizer.from_pretrained(stub),
             target_path=target_path,
-            integration="transformers",
             sequence_length=384,
-            # we need to disable applying kv cache injection
-            # because the script does not have access to the
-            # config.json (we are not creating a full deployment
-            # directory during the export)
-            graph_optimizations="none",
             task=task,
             validate_correctness=True,
             num_export_samples=2,
@@ -73,13 +60,15 @@ class TestEndToEndExport:
         )
         assert (target_path / "deployment" / "model.onnx").exists()
         assert not (target_path / "deployment" / "model.data").exists()
-        # assert that kv cache injection has not been applied
+        # check if kv cache injection has been applied
         onnx_model = onnx.load(
             str(target_path / "deployment" / "model.onnx"), load_external_data=False
         )
-        assert not any(
+        assert any(
             inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
         )
+
+        shutil.rmtree(tmp_path)
 
     def test_export_happy_path(self, setup):
         source_path, target_path, task = setup

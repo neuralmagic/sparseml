@@ -30,19 +30,16 @@ from transformers import (
 )
 from transformers.file_utils import WEIGHTS_NAME
 
+from compressed_tensors.compressors import ModelCompressor
+from sparseml.modifiers.quantization.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,
 )
-from sparseml.transformers.compression.utils import (
-    get_safetensors_folder,
-    infer_compressor_from_model_config,
+from sparseml.transformers.sparsification.compressed_tensors_utils import (
     modify_save_pretrained,
 )
-from sparseml.transformers.sparsification.modification import modify_model
-from sparseml.transformers.utils.helpers import resolve_recipe
-from sparseml.utils import download_zoo_training_dir
-from sparseml.utils.fsdp.context import main_process_first_context
+from sparseml.transformers.utils.helpers import download_model_directory, resolve_recipe
 
 
 __all__ = ["SparseAutoModel", "SparseAutoModelForCausalLM", "get_shared_tokenizer_src"]
@@ -61,11 +58,9 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
        of the model will be retrieved
     2. The original model definition will be loaded, without
         the model weights
-    3. The model will be potentially modifier by `modify_model`
-        function, so that is compatible with SparseML
-    4. The appropriate recipy will be applied to the model
+    3. The appropriate recipy will be applied to the model
        if requested or required
-    5. The appropriate set of weights will be loaded into the model
+    4. The appropriate set of weights will be loaded into the model
     """
 
     @classmethod
@@ -101,18 +96,12 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             else pretrained_model_name_or_path
         )
 
-        if pretrained_model_name_or_path.startswith("zoo:"):
-            _LOGGER.debug(
-                "Passed zoo stub to SparseAutoModelForCausalLM object. "
-                "Loading model from SparseZoo training files..."
-            )
-            with main_process_first_context():
-                pretrained_model_name_or_path = download_zoo_training_dir(
-                    zoo_stub=pretrained_model_name_or_path
-                )
+        pretrained_model_name_or_path = download_model_directory(
+            pretrained_model_name_or_path, **kwargs
+        )
 
-        # determine compression format, if any, from the model config
-        compressor = infer_compressor_from_model_config(pretrained_model_name_or_path)
+        # instantiate compressor from model config
+        compressor = ModelCompressor.from_pretrained(pretrained_model_name_or_path)
 
         # temporarily set the log level to error, to ignore printing out long missing
         # and unexpected key error messages (these are EXPECTED for quantized models)
@@ -123,27 +112,26 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
             pretrained_model_name_or_path, *model_args, **kwargs
         )
         logger.setLevel(level=restore_log_level)
-        model = modify_model(model)
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
 
-        # If model is compressed on disk, decompress and load the weights
+        # If model is quantized or compressed on disk, initialize quantization
+        # structure and run decompression
         if compressor is not None:
-            # if we loaded from a HF stub, find the cached model
-            model_path = get_safetensors_folder(
-                pretrained_model_name_or_path, cache_dir=kwargs.get("cache_dir", None)
+            # initialize quantization and decompress weights
+            compressor.decompress(model_path=pretrained_model_name_or_path, model=model)
+        else:
+            # legacy loading for old quantization modifier
+            recipe = resolve_recipe(
+                recipe=recipe, model_path=pretrained_model_name_or_path
             )
+            if recipe:
+                apply_recipe_structure_to_model(
+                    model=model,
+                    model_path=pretrained_model_name_or_path,
+                    recipe_path=recipe,
+                )
 
-            # decompress weights
-            compressor.overwrite_weights(model_path=model_path, model=model)
-
-        recipe = resolve_recipe(recipe=recipe, model_path=pretrained_model_name_or_path)
-        if recipe:
-            apply_recipe_structure_to_model(
-                model=model,
-                model_path=pretrained_model_name_or_path,
-                recipe_path=recipe,
-            )
         return model
 
 

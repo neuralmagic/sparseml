@@ -14,39 +14,37 @@
 
 """
 Modification to the original MobileBert model required in the
-context of SparseML
+context of SparseML quantization
 """
-
-import logging
 
 from torch import nn
 from transformers.models.mobilebert.modeling_mobilebert import MobileBertEmbeddings
 
+from sparseml.modifiers.quantization.modification.modification_objects import QATLinear
+from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
-from sparseml.transformers.sparsification.modification.modification_objects import (
-    QATLinear,
+from sparseml.transformers.sparsification.modification.base import (
+    check_transformers_version,
 )
-from sparseml.transformers.sparsification.modification.registry import (
-    ModificationRegistry,
-)
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @ModificationRegistry.register(name="MobileBertModel")
 def modify(model: nn.Module) -> nn.Module:
     """
     Modify the MobileBert model to be compatible with SparseML
+    quantization
 
-    1. Replaces the MobileBertEmbeddings modules with
-        MobileBertEmbeddingsWithQuantizableMatmuls modules
+    Replaces the MobileBertEmbeddings modules with
+    MobileBertEmbeddingsWithQuantizableMatmuls modules
 
     :param model: the original MobileBert model
     :return: the modified MobileBert model
     """
+    check_transformers_version()
     for name, submodule in model.named_modules():
-        if isinstance(submodule, MobileBertEmbeddings):
+        if isinstance(submodule, MobileBertEmbeddings) and not isinstance(
+            submodule, MobileBertEmbeddingsWithQuantizableLinear
+        ):
             swap_modules(
                 model, name, MobileBertEmbeddingsWithQuantizableLinear(submodule)
             )
@@ -63,7 +61,7 @@ class MobileBertEmbeddingsWithQuantizableLinear(MobileBertEmbeddings):
 
     def __init__(self, mobilebert_emb: MobileBertEmbeddings):
         self.__class__ = type(
-            mobilebert_emb.__class__.__name__,
+            self.__class__.__name__,
             (self.__class__, mobilebert_emb.__class__),
             {},
         )
