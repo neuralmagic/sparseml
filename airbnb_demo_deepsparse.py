@@ -7,7 +7,7 @@ dataset_name = "tweet_eval"
 dataset_subname = "sentiment"
 dataset_test = load_dataset(dataset_name, dataset_subname, split="test").shuffle(seed=420)
 config = AutoConfig.from_pretrained("./oneshot_deployment/deployment")
-pipeline = Pipeline.create("text-classification", model_path = "./oneshot_deployment/deployment", engine_type="onnxruntime")
+pipeline = Pipeline.create("text-classification", model_path = "./oneshot_deployment/deployment")
 correct_labels = 0
 for i, sample in enumerate(dataset_test):
     text, label = sample["text"], sample["label"]
