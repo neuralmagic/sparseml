@@ -75,7 +75,7 @@ class TestQuantizationMatches(unittest.TestCase):
         )
 
         cls.model_new = SparseAutoModelForCausalLM.from_pretrained(
-            cls.model_stub, device_map="cuda:1"
+            cls.model_stub, device_map="cuda:0"
         )
         cls._run_oneshot(
             cls.model_new,
@@ -219,7 +219,7 @@ class TestQuantizationMatches(unittest.TestCase):
         for idx, sample in enumerate(dataloader):
             if idx >= self.num_comparisons:
                 break
-            output_new = self.model_new(**tensors_to_device(sample, "cuda:1"))
+            output_new = self.model_new(**tensors_to_device(sample, "cuda:0"))
             output_old = self.model_old(**tensors_to_device(sample, "cuda:0"))
             if torch.isnan(output_old.loss) and torch.isnan(output_new.loss):
                 continue
