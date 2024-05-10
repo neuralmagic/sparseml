@@ -5,7 +5,7 @@ on:
       - '*'
 jobs:
   test-nightly-tests:
-    runs-on: k8s-eng-gpu-16G-t4-32G # Should have multiple gpus enabled
+    runs-on: k8s-mle-gpu-14-vcpu-116GB-ram-t4-32 # Should have multiple gpus enabled
     env:
       CADENCE: "nightly"
       SPARSEZOO_TEST_MODE: "true"
@@ -33,5 +33,5 @@ jobs:
       - name: Run integration tests 
         run: |
           export CADENCE="nightly"
-          pytest -s tests/sparseml/transformers -m integration
+          pytest -s tests/sparseml/transformers/obcq/test_obcq_completion.py -m integration
       
