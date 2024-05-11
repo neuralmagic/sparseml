@@ -53,9 +53,6 @@ def requires_torch(test_case):
 
 
 def requires_gpu(test_case):
-    import torch 
-
-    print("GPU", is_gpu_available(), torch.cuda.is_available())
     return unittest.skipUnless(is_gpu_available(), "test requires GPU")(test_case)
 
 
@@ -101,7 +98,6 @@ def parse_params(
         cadence = os.environ.get("CADENCE", "commit")
         expected_cadence = config.get("cadence")
 
-        print("CADENCE", cadence, expected_cadence)
 
         if not isinstance(expected_cadence, list):
             expected_cadence = [expected_cadence]
