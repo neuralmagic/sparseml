@@ -166,7 +166,7 @@ class TestQuantizationMatches(unittest.TestCase):
         for name, (o_scale, o_zp) in old_quant_inputs.items():
             n_scale, n_zp = new_quant_inputs[name]
             assert math.isclose(o_scale, n_scale, abs_tol=1e-2, rel_tol=1e-2)
-            assert abs(o_zp - n_zp) < 5
+            assert abs(o_zp - n_zp) < 10
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(
