@@ -148,11 +148,13 @@ def intialize_model_from_path(
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        tie_word_embeddings=False,
     )
     teacher_config = (
         AutoConfig.from_pretrained(
             model_args.distill_teacher,
             use_auth_token=True if model_args.use_auth_token else None,
+            tie_word_embeddings=False,
         )
         if model_args.distill_teacher
         else None
