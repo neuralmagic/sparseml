@@ -12,28 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import unittest
+
+import pytest
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
 from tests.sparseml.modifiers.conf import setup_modifier_factory
+from tests.testing_utils import requires_torch
 
 
-def test_wanda_pytorch_is_registered():
-    from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
+@pytest.mark.unit
+@requires_torch
+class TestWandaPytorchIsRegistered(unittest.TestCase):
+    def setUp(self):
+        self.kwargs = dict(
+            sparsity=0.5,
+            targets="__ALL_PRUNABLE__",
+        )
+        setup_modifier_factory()
 
-    kwargs = dict(
-        sparsity=0.5,
-        targets="__ALL_PRUNABLE__",
-    )
-    setup_modifier_factory()
-    type_ = ModifierFactory.create(
-        type_="WandaPruningModifier",
-        framework=Framework.pytorch,
-        allow_experimental=False,
-        allow_registered=True,
-        **kwargs,
-    )
+    def test_wanda_pytorch_is_registered(self):
+        from sparseml.modifiers.pruning.wanda.pytorch import WandaPruningModifierPyTorch
 
-    assert isinstance(
-        type_, WandaPruningModifierPyTorch
-    ), "PyTorch ConstantPruningModifier not registered"
+        type_ = ModifierFactory.create(
+            type_="WandaPruningModifier",
+            framework=Framework.pytorch,
+            allow_experimental=False,
+            allow_registered=True,
+            **self.kwargs,
+        )
+
+        self.assertIsInstance(
+            type_,
+            WandaPruningModifierPyTorch,
+            "PyTorch ConstantPruningModifier not registered",
+        )

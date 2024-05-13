@@ -25,7 +25,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Union
 
 import numpy
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, model_validator
 
 from sparseml.utils import clean_path, create_parent_dirs
 
@@ -87,7 +87,8 @@ class LayerInfo(BaseModel):
         description="dictionary of string attribute names to their values",
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def check_params_if_prunable(_, values):
         prunable = values.get("prunable")
         params = values.get("params")

@@ -76,7 +76,7 @@ class TaskNames(Enum):
 ALL_TASK_NAMES = list(set.union(*[task_names.value for task_names in TaskNames]))
 ONNX_MODEL_NAME_INTERMEDIATE = "model-orig.onnx"
 RECIPE_NAME = "recipe.yaml"
-SPARSITY_CONFIG_NAME = "sparsity_config"
+
 MANDATORY_DEPLOYMENT_FILES = {
     ONNX_MODEL_NAME,
     "tokenizer_config.json",

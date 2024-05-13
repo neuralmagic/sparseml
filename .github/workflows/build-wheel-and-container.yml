@@ -59,7 +59,7 @@ jobs:
     needs: build-wheel-and-push
     uses: ./.github/workflows/test-wheel-push-to-internal.yml
     with:
-      build-label: aws-avx2-64G
+      build-label: ubuntu-20.04
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
       python: '3.10'
     secrets: inherit
@@ -70,7 +70,7 @@ jobs:
     needs: [set-outputs, test-wheel-and-push-internal]
     uses: ./.github/workflows/build-container.yml
     with:
-      build-label: aws-avx2-64G
+      build-label: k8s-eng-gpu-64G-v100-32G
       dev: ${{ needs.set-outputs.outputs.dev }}
       release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }}

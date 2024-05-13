@@ -62,6 +62,15 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/compressed-tensors"
+          path: "compressed-tensors"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install compressed-tensors dependencies"
+        run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
+      - name: "Clean compressed-tensors directory"
+        run: rm -r compressed-tensors/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torchvision,deepsparse,onnxruntime,transformers,yolov5]
       - name: "🔬 Running integrations tests (cadence: pre-commit}})"

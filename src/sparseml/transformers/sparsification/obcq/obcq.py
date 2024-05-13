@@ -21,7 +21,7 @@ from typing import Dict, Optional
 from torch.nn import Module
 from transformers import AutoConfig
 
-import sparseml.core.session as session_manager
+import sparseml
 from sparseml.core.framework import Framework
 from sparseml.pytorch.model_load.helpers import (
     fallback_to_cpu,
@@ -90,7 +90,7 @@ def one_shot(
     config = AutoConfig.from_pretrained(model_path)
 
     torch_dtype = parse_dtype(precision)
-    session_manager.create_session()
+    sparseml.create_session()
     model = initialize_sparse_model(
         model_path=model_path,
         task="text-generation",
@@ -131,7 +131,7 @@ def one_shot(
     )
 
     # launch one shot
-    session = session_manager.active_session()
+    session = sparseml.active_session()
     session.apply(
         framework=Framework.pytorch,
         recipe=recipe_file,

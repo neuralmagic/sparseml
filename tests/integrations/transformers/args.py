@@ -507,12 +507,6 @@ class _TransformersTrainArgs(BaseModel):
     push_to_hub_token: str = Field(
         default=None, description="The token to use to push to the Model Hub."
     )
-    _n_gpu: int = Field(init=False, repr=False, default=-1)
-    mp_parameters: Optional[str] = Field(
-        default=None,
-        description="Used by the SageMaker launcher to send mp-specific args. "
-        "Ignored in Trainer",
-    )
 
 
 class QuestionAnsweringArgs(_TransformersTrainArgs):

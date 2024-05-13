@@ -132,7 +132,7 @@ A recipe can be run stage-by-stage by setting `run_stages` to `True` or calling 
 a `run_type` attribute set to either `oneshot` or `train` when running in sequential 
 mode.
 
-See [example_alternating_recipe.yaml](example_alternating_recipe.yaml) for an example 
+See [example_alternating_recipe.yaml](../../../../integrations/huggingface-transformers/tutorials/text-generation/example_alternating_recipe.yaml) for an example 
 of a staged recipe for Llama. 
 
 ### Python Example
