@@ -25,6 +25,7 @@ except ImportError as err:
 
 import logging
 import math
+from copy import copy
 
 import torch
 import torch.nn as nn
@@ -172,28 +173,51 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                         q = torch.quantize_per_channel(q, scale, zero_point, 0, dtype)
                     q = torch.dequantize(q)
                 elif hasattr(self.layer, "quantization_scheme"):
-                    if self.layer.quantization_scheme.weights is not None:
+                    quant_scheme = self.layer.quantization_scheme
+                    if quant_scheme.weights is not None:
                         scale = self.layer.weight_scale
                         zero_point = self.layer.weight_zero_point
+                        from compressed_tensors.quantization import QuantizationStrategy
                         from compressed_tensors.quantization.lifecycle.forward import (
                             fake_quantize,
                         )
 
-                        while scale.ndim < 2:
-                            scale = scale.unsqueeze(1)
-                            zero_point = zero_point.unsqueeze(1)
+                        strategy = quant_scheme.weights.strategy
 
-                        while q.ndim < 2:
-                            q = q.unsqueeze(1)
-                        q = fake_quantize(
-                            q,
-                            scale[:, i],
-                            zero_point[:, i],
-                            self.layer.quantization_scheme.weights,
-                        )
+                        if strategy == QuantizationStrategy.TENSOR:
+                            q = fake_quantize(
+                                q,
+                                scale,
+                                zero_point,
+                                self.layer.quantization_scheme.weights,
+                            )
+                        elif strategy == QuantizationStrategy.CHANNEL:
+                            # TODO: for channelwise why isn't this just a 1d tensor?
+                            q = fake_quantize(
+                                q,
+                                scale[:, 0],
+                                zero_point[:, 0],
+                                quant_scheme.weights,
+                            )
+                        else:  # strategy == QuantizationStrategy.CHANNEL
+                            # TODO: for grouped quantization its always 3d but the last
+                            # dim is always 1. Can we just make it 2d instead and avoid?
+                            scale = scale[:, :, 0]
+                            zero_point = zero_point[:, :, 0]
 
-                while q.ndim != 1:
-                    q.squeeze()
+                            # get the group index for the current column
+                            input_dim_group = i // quant_scheme.weights.group_size
+
+                            # Since we're only applying quantization to a slice, this
+                            # ends up being a channelwise application
+                            altered_qargs = copy(quant_scheme.weights)
+                            altered_qargs.strategy = QuantizationStrategy.CHANNEL
+                            q = fake_quantize(
+                                q,
+                                scale[:, input_dim_group],
+                                zero_point[:, input_dim_group],
+                                altered_qargs,
+                            )
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2

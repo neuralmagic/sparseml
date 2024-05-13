@@ -140,7 +140,7 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
-    runs-on: aws-avx2-64G
+    runs-on: k8s-eng-gpu-64G-v100-32G
     env:
       SPARSEZOO_TEST_MODE: "true"
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
@@ -169,7 +169,7 @@ jobs:
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-pytorch-tests:
-    runs-on: aws-avx2-64G
+    runs-on: k8s-eng-gpu-64G-v100-32G
     env:
       SPARSEZOO_TEST_MODE: "true"
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
@@ -222,7 +222,7 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   transformers-tests:
-    runs-on: aws-avx2-64G
+    runs-on: k8s-eng-gpu-64G-v100-32G
     env:
       SPARSEZOO_TEST_MODE: "true"
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
@@ -246,6 +246,15 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/compressed-tensors"
+          path: "compressed-tensors"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install compressed-tensors dependencies"
+        run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
+      - name: "Clean compressed-tensors directory"
+        run: rm -r compressed-tensors/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torch,transformers,onnxruntime]
       - name: "🔬 Running transformers tests"
@@ -270,6 +279,15 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/compressed-tensors"
+          path: "compressed-tensors"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install compressed-tensors dependencies"
+        run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
+      - name: "Clean compressed-tensors directory"
+        run: rm -r compressed-tensors/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torch,transformers,torchvision,onnxruntime]
       - name: "🔬 Running export tests"
