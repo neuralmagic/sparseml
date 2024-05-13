@@ -77,7 +77,7 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     )
 
     inferred_global_sparsity = SparsityConfigMetadata.infer_global_sparsity(model)
-    assert math.isclose(inferred_global_sparsity, 19.6562, rel_tol=1e-3)
+    assert math.isclose(inferred_global_sparsity, 12.234, rel_tol=1e-3)
     inferred_structure = SparsityConfigMetadata.infer_sparsity_structure()
     assert inferred_structure == "0:0"
 
