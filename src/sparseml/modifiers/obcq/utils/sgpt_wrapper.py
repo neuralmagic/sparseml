@@ -180,10 +180,13 @@ class SparseGptWrapper(ModuleCompressionWrapper):
 
                 if prunen != 0 and i % prunem == 0:
                     tmp = (
-                        (~mask[:, i : (i + prunem)])
-                        * W1[:, i : (i + prunem)] ** 2
+                        W1[:, i : (i + prunem)] ** 2
                         / (torch.diag(Hinv1)[i : (i + prunem)].reshape((1, -1))) ** 2
                     )
+
+                    if mask is not None:
+                        tmp = tmp * (~mask[:, i : (i + prunem)])
+
                     mask1.scatter_(
                         1, i + torch.topk(tmp, prunen, dim=1, largest=False)[1], True
                     )
