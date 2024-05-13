@@ -54,6 +54,9 @@ class SparseGPTModifier(Modifier):
     :param block_size: Used to determine number of columns to compress in one pass
     :param dampening_frac: Amount of dampening to apply to H, as a fraction of the
         diagonal norm
+    :param preserve_sparsity_mask: Whether or not to preserve the sparsity mask
+        during when applying sparsegpt, this becomes useful when starting from a
+        previously pruned model, defaults to False.
     """
 
     sparsity: Union[float, List[float]] = 0.0
@@ -68,6 +71,7 @@ class SparseGPTModifier(Modifier):
     prunem_: Optional[int] = None
     block_size: int = 128
     dampening_frac: Optional[float] = 0.01
+    preserve_sparsity_mask: bool = False
 
     def on_initialize_structure(self, state: State, **kwargs):
         """
