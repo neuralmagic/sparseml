@@ -21,6 +21,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from accelerate import init_empty_weights
 from sparseml.transformers.utils.helpers import (
     create_fake_dataloader,
+    generate_mask,
     infer_recipe_from_model_path,
     is_transformer_model,
     resolve_recipe_file,
@@ -166,3 +167,55 @@ def test_save_zoo_directory(tmp_path, stub):
     assert zoo_model.validate(minimal_validation=True, validate_onnxruntime=False)
     shutil.rmtree(path_to_training_outputs)
     shutil.rmtree(save_dir)
+
+
+@pytest.mark.parametrize(
+    "string, response, prompt, expected_mask",
+    [
+        (
+            ("[foo]hello\n\n" "[bar]world"),
+            "[bar]",
+            "[foo]",
+            ("000000000000" "1111111111"),
+        ),
+        (
+            (
+                "[Instruction]python is\n\n"  # 24
+                "[Response]great\n\n"  # 17
+                "[Instruction]What about Java"  # 28
+                "[Response]Meh"  # 13
+            ),
+            "[Response]",
+            "[Instruction]",
+            (
+                "000000000000000000000000"  # 24
+                "11111111111111111"  # 17
+                "0000000000000000000000000000"  # 28
+                "1111111111111"  # 13
+            ),
+        ),
+        (
+            ("[foo]hello\n\n" "[bar]world"),
+            "[bar]",
+            None,
+            ("000000000000" "1111111111"),
+        ),
+        (
+            ("hello\n\n" "[bar]world"),
+            "[bar]",
+            None,
+            ("0000000" "1111111111"),
+        ),
+        (
+            ("[bar]world" "[foo]hello\n\n" "[bar]world"),
+            "[bar]",
+            "[foo]",
+            ("1111111111" "000000000000" "1111111111"),
+        ),
+    ],
+)
+def test_generate_mask(string, response, prompt, expected_mask):
+    if prompt is not None:
+        assert generate_mask(string, response, prompt) == expected_mask
+    else:
+        assert generate_mask(string, response) == expected_mask

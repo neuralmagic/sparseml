@@ -91,7 +91,6 @@ class CustomDataset(TextGenerationDataset):
                 num_proc=self.data_args.preprocessing_num_workers,
                 desc="Removing unneeded columns",
             )
-
         return raw_dataset
 
     def get_remove_columns_from_dataset(
@@ -108,5 +107,7 @@ class CustomDataset(TextGenerationDataset):
             remove_columns.remove(self.text_column)
         if self.PROMPT_KEY in remove_columns:
             remove_columns.remove(self.PROMPT_KEY)
+        if self.MASK_KEY in remove_columns:
+            remove_columns.remove(self.MASK_KEY)
 
         return list(remove_columns)
