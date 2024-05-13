@@ -53,7 +53,9 @@ from tests.testing_utils import requires_gpu, requires_torch
 class TestQuantizationMatches(unittest.TestCase):
     old_recipe = None
     new_recipe = None
-    model_stub = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
+    # TODO: use "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T" for nightly
+    # or weekly runs, but this smaller model is better for commit testing
+    model_stub = "Xenova/llama2.c-stories15M"
     dataset = "open_platypus"
     old_output = "tiny_llama_old"
     new_output = "tiny_llama_new"
@@ -75,7 +77,7 @@ class TestQuantizationMatches(unittest.TestCase):
         )
 
         cls.model_new = SparseAutoModelForCausalLM.from_pretrained(
-            cls.model_stub, device_map="cuda:1"
+            cls.model_stub, device_map="cuda:0"
         )
         cls._run_oneshot(
             cls.model_new,
@@ -106,6 +108,7 @@ class TestQuantizationMatches(unittest.TestCase):
             num_calibration_samples=num_calibration_samples,
             recipe=recipe,
             pad_to_max_length=pad_to_max_length,
+            clear_sparse_session=True,
         )
 
     def _get_quant_info_old(self, model):
@@ -219,7 +222,7 @@ class TestQuantizationMatches(unittest.TestCase):
         for idx, sample in enumerate(dataloader):
             if idx >= self.num_comparisons:
                 break
-            output_new = self.model_new(**tensors_to_device(sample, "cuda:1"))
+            output_new = self.model_new(**tensors_to_device(sample, "cuda:0"))
             output_old = self.model_old(**tensors_to_device(sample, "cuda:0"))
             if torch.isnan(output_old.loss) and torch.isnan(output_new.loss):
                 continue
