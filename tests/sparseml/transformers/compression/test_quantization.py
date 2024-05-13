@@ -97,7 +97,7 @@ class TestQuantizationMatches(unittest.TestCase):
 
     @staticmethod
     def _run_oneshot(model, recipe, dataset, output_dir):
-        num_calibration_samples = 8
+        num_calibration_samples = 512
         max_seq_length = 512
         pad_to_max_length = False
 
@@ -158,11 +158,12 @@ class TestQuantizationMatches(unittest.TestCase):
         new_quant_weights, new_quant_inputs = self._get_quant_info_new(self.model_new)
 
         for name, (o_scale, o_zp) in old_quant_weights.items():
+            print(name)
             if name.endswith(".module"):
                 name = name[:-7]
             n_scale, n_zp = new_quant_weights[name]
             assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-3, rtol=1e-3))
-            assert torch.equals(o_zp.cpu(), n_zp.cpu())
+            assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
         # allow for error here due to implementation differences
         for name, (o_scale, o_zp) in old_quant_inputs.items():
@@ -180,13 +181,13 @@ class TestQuantizationMatches(unittest.TestCase):
 
         for name, (o_scale, o_zp) in og_weights.items():
             n_scale, n_zp = reloaded_weights[name]
-            assert o_scale == n_scale
-            assert o_zp == n_zp
+            assert torch.equal(o_scale.cpu(), n_scale.cpu())
+            assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
         for name, (o_scale, o_zp) in og_inputs.items():
             n_scale, n_zp = reloaded_inputs[name]
-            assert o_scale == n_scale
-            assert o_zp == n_zp
+            assert torch.equal(o_scale.cpu(), n_scale.cpu())
+            assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
     def _get_dataloader(self, data_args, tokenizer):
         dataset_manager = TextGenerationDataset.load_from_registry(
