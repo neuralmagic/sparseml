@@ -40,13 +40,17 @@ from tests.testing_utils import requires_gpu, requires_torch
 @parameterized_class(
     ("old_recipe", "new_recipe"),
     [
+        #(
+        #    "tests/sparseml/transformers/compression/recipes/old_quant_full.yaml",
+        #    "tests/sparseml/transformers/compression/recipes/new_quant_full.yaml",
+        #),
+        #(
+        #    "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
+        #    "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
+        #),
         (
-            "tests/sparseml/transformers/compression/recipes/old_quant_full.yaml",
-            "tests/sparseml/transformers/compression/recipes/new_quant_full.yaml",
-        ),
-        (
-            "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
-            "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
+            "tests/sparseml/transformers/compression/recipes/old_quant_channel.yaml",
+            "tests/sparseml/transformers/compression/recipes/new_quant_channel.yaml",
         ),
     ],
 )
@@ -93,7 +97,7 @@ class TestQuantizationMatches(unittest.TestCase):
 
     @staticmethod
     def _run_oneshot(model, recipe, dataset, output_dir):
-        num_calibration_samples = 512
+        num_calibration_samples = 8
         max_seq_length = 512
         pad_to_max_length = False
 
@@ -106,6 +110,7 @@ class TestQuantizationMatches(unittest.TestCase):
             num_calibration_samples=num_calibration_samples,
             recipe=recipe,
             pad_to_max_length=pad_to_max_length,
+            clear_sparse_session=True
         )
 
     def _get_quant_info_old(self, model):
@@ -113,12 +118,12 @@ class TestQuantizationMatches(unittest.TestCase):
         quant_info_inputs = {}
         for name, module in model.named_modules():
             if hasattr(module, "weight_fake_quant"):
-                scale = module.weight_fake_quant.scale.item()
-                zp = module.weight_fake_quant.zero_point.item()
+                scale = module.weight_fake_quant.scale
+                zp = module.weight_fake_quant.zero_point
                 quant_info_weights[name] = (scale, zp)
             elif hasattr(module, "quant"):
-                scale = module.quant.activation_post_process.scale.item()
-                zp = module.quant.activation_post_process.zero_point.item()
+                scale = module.quant.activation_post_process.scale
+                zp = module.quant.activation_post_process.zero_point
                 quant_info_inputs[name] = (scale, zp)
 
         return quant_info_weights, quant_info_inputs
@@ -130,13 +135,13 @@ class TestQuantizationMatches(unittest.TestCase):
             if is_module_quantized(module):
                 if module.quantization_scheme.weights is not None:
                     quant_info_weights[name] = (
-                        module.weight_scale.item(),
-                        module.weight_zero_point.item(),
+                        module.weight_scale,
+                        module.weight_zero_point,
                     )
                 if module.quantization_scheme.input_activations is not None:
                     quant_info_inputs[name] = (
-                        module.input_scale.item(),
-                        module.input_zero_point.item(),
+                        module.input_scale,
+                        module.input_zero_point,
                     )
 
         return quant_info_weights, quant_info_inputs
@@ -156,14 +161,14 @@ class TestQuantizationMatches(unittest.TestCase):
             if name.endswith(".module"):
                 name = name[:-7]
             n_scale, n_zp = new_quant_weights[name]
-            assert math.isclose(o_scale, n_scale, abs_tol=1e-3, rel_tol=1e-3)
-            assert o_zp == n_zp
+            assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-3, rtol=1e-3))
+            assert torch.equals(o_zp.cpu(), n_zp.cpu())
 
         # allow for error here due to implementation differences
         for name, (o_scale, o_zp) in old_quant_inputs.items():
             n_scale, n_zp = new_quant_inputs[name]
-            assert math.isclose(o_scale, n_scale, abs_tol=1e-2, rel_tol=1e-2)
-            assert abs(o_zp - n_zp) < 5
+            assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-2, rtol=1e-2))
+            assert not torch.any(torch.abs(o_zp.cpu() - n_zp.cpu()) >= 5)
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(

@@ -1,0 +1,20 @@
+test_stage:
+    quant_modifiers:
+        vLLMQuantizationModifier:
+            ignore: ["lm_head", "model.layers.0.mlp.down_proj"]
+            config_groups:
+                group_0:
+                    weights:
+                        num_bits: 4
+                        type: "int"
+                        symmetric: true
+                        strategy: "channel"
+                    input_activations: null
+                    output_activations: null
+                    targets: ["Linear", "Embedding"]
+        SparseGPTModifier:
+            sparsity: 0.0
+            block_size: 128
+            sequential_update: True
+            quantize: True
+            targets: ["model.layers.0", "model.layers.1"]
