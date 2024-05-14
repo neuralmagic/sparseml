@@ -84,7 +84,7 @@ class TestQuantizationMatches(unittest.TestCase):
 
     @staticmethod
     def _run_oneshot(model, recipe, dataset, output_dir):
-        num_calibration_samples = 4
+        num_calibration_samples = 256
         max_seq_length = 512
         pad_to_max_length = False
 
