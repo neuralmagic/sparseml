@@ -54,7 +54,10 @@ class SparseGptWrapper(ModuleCompressionWrapper):
 
         # for Hessian calculation
         self.register_buffer(
-            "H", torch.zeros((self.columns, self.columns), device=self.dev)
+            "H",
+            torch.zeros(
+                (self.columns, self.columns), dtype=layer.weight.dtype, device=self.dev
+            ),
         )
 
     def add_batch(self, inp: torch.Tensor, out: torch.Tensor):
