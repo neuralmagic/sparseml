@@ -12,3 +12,9 @@ test_stage:
                     input_activations: null
                     output_activations: null
                     targets: ["Linear"]
+        SparseGPTModifier:
+            sparsity: 0.0
+            block_size: 128
+            sequential_update: False
+            quantize: True
+            targets: ["model.layers.0", "model.layers.1", "model.layers.2"]
