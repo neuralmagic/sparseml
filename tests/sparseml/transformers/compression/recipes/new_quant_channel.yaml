@@ -7,14 +7,8 @@ test_stage:
                     weights:
                         num_bits: 4
                         type: "int"
-                        symmetric: true
+                        symmetric: False
                         strategy: "channel"
                     input_activations: null
                     output_activations: null
                     targets: ["Linear"]
-        #SparseGPTModifier:
-        #    sparsity: 0.0
-        #    block_size: 128
-        #    sequential_update: False
-        #    quantize: True
-        #    targets: ["re:model.layers.\\d+$"]

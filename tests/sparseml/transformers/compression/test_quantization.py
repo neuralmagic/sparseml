@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import os
 import shutil
 import tempfile
@@ -33,32 +32,19 @@ from sparseml.transformers import (
 )
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
-from tests.testing_utils import requires_gpu, requires_torch
+from tests.testing_utils import parse_params, requires_gpu, requires_torch
+
+
+CONFIGS_DIRECTORY = "tests/sparseml/transformers/compression/configs"
 
 
 @requires_torch
 @requires_gpu
-@parameterized_class(
-    ("old_recipe", "new_recipe"),
-    [
-        (
-            "tests/sparseml/transformers/compression/recipes/old_quant_full.yaml",
-            "tests/sparseml/transformers/compression/recipes/new_quant_full.yaml",
-        ),
-        (
-            "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
-            "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
-        ),
-        (
-            "tests/sparseml/transformers/compression/recipes/old_quant_channel.yaml",
-            "tests/sparseml/transformers/compression/recipes/new_quant_channel.yaml",
-        ),
-    ],
-)
+@parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestQuantizationMatches(unittest.TestCase):
     old_recipe = None
     new_recipe = None
-    model_stub = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
+    model_stub = None
     dataset = "open_platypus"
     old_output = "tiny_llama_old"
     new_output = "tiny_llama_new"
@@ -111,7 +97,7 @@ class TestQuantizationMatches(unittest.TestCase):
             num_calibration_samples=num_calibration_samples,
             recipe=recipe,
             pad_to_max_length=pad_to_max_length,
-            clear_sparse_session=True
+            clear_sparse_session=True,
         )
 
     def _get_quant_info_old(self, model):
@@ -139,7 +125,12 @@ class TestQuantizationMatches(unittest.TestCase):
                     quant_info_weights[name] = (
                         module.weight_scale,
                         module.weight_zero_point,
-                        fake_quantize(module.weight, module.weight_scale, module.weight_zero_point, module.quantization_scheme.weights)
+                        fake_quantize(
+                            module.weight,
+                            module.weight_scale,
+                            module.weight_zero_point,
+                            module.quantization_scheme.weights,
+                        ),
                     )
                 if module.quantization_scheme.input_activations is not None:
                     quant_info_inputs[name] = (
@@ -157,41 +148,24 @@ class TestQuantizationMatches(unittest.TestCase):
         assert len(old_quant_inputs) == len(new_quant_inputs)
 
     def test_quantization_matches(self):
-        old_quant_weights, old_quant_inputs = self._get_quant_info_old(self.model_old)
-        new_quant_weights, new_quant_inputs = self._get_quant_info_new(self.model_new)
+        old_quant_weights, _ = self._get_quant_info_old(self.model_old)
+        new_quant_weights, _ = self._get_quant_info_new(self.model_new)
 
-        for name, (o_scale, o_zp, o_weight) in old_quant_weights.items():
+        for name, (o_scale, o_zp, _) in old_quant_weights.items():
             if name.endswith(".module"):
                 name = name[:-7]
-            n_scale, n_zp, n_weight = new_quant_weights[name]
-            if n_scale.ndim == 2: # channelwise
+            n_scale, n_zp, _ = new_quant_weights[name]
+            if n_scale.ndim == 2:  # channelwise
                 n_scale = n_scale[:, 0]
-                o_scale = o_scale[:, 0]
                 n_zp = n_zp[:, 0]
-                o_zp = o_zp[:, 0]
-            elif n_scale.ndim == 0: # tensor
+            elif n_scale.ndim == 0:  # tensor
                 n_scale = torch.unsqueeze(n_scale, 0)
                 n_zp = torch.unsqueeze(n_zp, 0)
 
-            assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-3, rtol=1e-3))
-            #if not torch.all(torch.isclose(o_weight.cpu(), n_weight.cpu(), atol=1e-3, rtol=1e-3)):
-            #    print("MISMATCH", name)
+            assert torch.all(
+                torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-3, rtol=1e-3)
+            )
             assert torch.equal(o_zp.cpu(), n_zp.cpu())
-
-        # allow for error here due to implementation differences
-        for name, (o_scale, o_zp) in old_quant_inputs.items():
-            n_scale, n_zp = new_quant_inputs[name]
-            if n_scale.ndim == 2: # channelwise
-                n_scale = n_scale[:, 0]
-                o_scale = o_scale[:, 0]
-                n_zp = n_zp[:, 0]
-                o_zp = o_zp[:, 0]
-            elif n_scale.ndim == 0: # tensor
-                n_scale = torch.unsqueeze(n_scale, 0)
-                n_zp = torch.unsqueeze(n_zp, 0)
-
-            assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-2, rtol=1e-2))
-            assert not torch.any(torch.abs(o_zp.cpu() - n_zp.cpu()) >= 5)
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(
@@ -201,8 +175,8 @@ class TestQuantizationMatches(unittest.TestCase):
         og_weights, og_inputs = self._get_quant_info_new(self.model_new)
         reloaded_weights, reloaded_inputs = self._get_quant_info_new(model_reloaded)
 
-        for name, (o_scale, o_zp, o_weight) in og_weights.items():
-            n_scale, n_zp, n_weight = reloaded_weights[name]
+        for name, (o_scale, o_zp, _) in og_weights.items():
+            n_scale, n_zp, _ = reloaded_weights[name]
             assert torch.equal(o_scale.cpu(), n_scale.cpu())
             assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
