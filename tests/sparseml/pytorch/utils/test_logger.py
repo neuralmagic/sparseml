@@ -19,7 +19,7 @@ from abc import ABC
 
 import pytest
 
-from sparseml.pytorch.utils import (
+from sparseml.pytorch.utils import (  # ClearMLLogger,
     LambdaLogger,
     LoggerManager,
     PythonLogger,
@@ -45,6 +45,8 @@ from sparseml.pytorch.utils import (
             or True
         ),
         *([WANDBLogger()] if WANDBLogger.available() else []),
+        # TODO: uncomment this once the ClearML server hanging is fixed
+        # *([ClearMLLogger()] if ClearMLLogger.available() else []),
         SparsificationGroupLogger(
             lambda_func=lambda tag, value, values, step, wall_time, level: logging.info(
                 f"{tag}, {value}, {values}, {step}, {wall_time}, {level}"
@@ -79,12 +81,12 @@ class TestModifierLogger(ABC):
 
     def test_log_scalars(self, logger):
         logger.log_scalars("test-scalars-tag", {"scalar1": 0.0, "scalar2": 1.0})
-        logger.log_scalars("test-scalars-tag", {"scalar1": 0.0, "scalar2": 1.0}, 1)
+        logger.log_scalars("test-scalars-tag2", {"scalar1": 0.0, "scalar2": 1.0}, 1)
         logger.log_scalars(
-            "test-scalars-tag", {"scalar1": 0.0, "scalar2": 1.0}, 2, time.time() - 1
+            "test-scalars-tag3", {"scalar1": 0.0, "scalar2": 1.0}, 2, time.time() - 1
         )
         logger.log_scalars(
-            "test-scalars-tag",
+            "test-scalars-tag4",
             {"scalar1": 0.0, "scalar2": 1.0},
             2,
             time.time() - 1,

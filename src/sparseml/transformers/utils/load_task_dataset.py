@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional
+import logging
+from typing import Any, Dict, Optional, Union
 
 import datasets
 from torch.nn import Module
@@ -22,6 +23,7 @@ from sparseml.transformers.utils.helpers import TaskNames
 
 
 __all__ = ["load_task_dataset", "load_dataset"]
+_LOGGER = logging.getLogger(__name__)
 
 
 def load_dataset(*args, **kwargs):
@@ -110,19 +112,35 @@ def load_task_dataset(
 
         data_training_args = DataTrainingArguments(**data_args)
         dataset_manager = TextGenerationDataset.load_from_registry(
-            data_args["dataset_name"],
+            data_args["dataset"],
             tokenizer=tokenizer,
             data_args=data_training_args,
-            split=split,
+            split=None,
         )
         raw_dataset = dataset_manager.get_raw_dataset()
+        raw_dataset = choose_split(raw_dataset, split=split)
         dataset = dataset_manager.tokenize_and_process(raw_dataset)
         return dataset
 
     if dataset is None:
         raise ValueError(f"unrecognized task given of {task}")
 
-    if split:
-        return dataset.get(split)
+    return choose_split(dataset, split=split)
 
+
+def choose_split(
+    dataset: Union[dict, "DatasetDict"], split: Optional[str] = None  # noqa F821
+) -> "Dataset":  # noqa F821
+    if split is None:
+        _LOGGER.info(
+            "Attempting to load the dataset without having specified "
+            "the specific split. This may cause longer loading times for big datasets. "
+            "To avoid this, the default split will be inferred..."
+        )
+        if "validation" in list(dataset.keys()):
+            split = "validation"
+        else:
+            split = list(dataset.keys())[-1]
+        _LOGGER.info(f"Inferred split: {split}")
+    dataset = dataset[split]
     return dataset

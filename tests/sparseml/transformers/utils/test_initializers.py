@@ -44,6 +44,7 @@ def save_recipe_for_text_classification(source_path):
         f.write(recipe)
 
 
+@pytest.mark.parametrize("device", ["auto", "cpu", None])
 @pytest.mark.parametrize(
     "stub, task, data_args",
     [
@@ -58,11 +59,9 @@ def save_recipe_for_text_classification(source_path):
             None,
         ),
     ],
-    scope="class",
 )
-@pytest.mark.parametrize("device", ["auto", "cpu", None], scope="class")
 class TestInitializeModelFlow:
-    @pytest.fixture()
+    @pytest.fixture(autouse=True)
     def setup(self, tmp_path, stub, task, data_args, device):
         self.model_path = (
             Model(stub, tmp_path).training.path
@@ -128,12 +127,9 @@ class TestInitializeModelFlow:
             model=model,
             config=config,
         )
-        validation_dataset = dataset.get("validation")
 
         trainer = initialize_trainer(
-            model=model,
-            model_path=self.model_path,
-            validation_dataset=validation_dataset,
+            model=model, model_path=self.model_path, validation_dataset=dataset
         )
         # assert that trainer is not messing up with model's location
         self._test_model_device(model)

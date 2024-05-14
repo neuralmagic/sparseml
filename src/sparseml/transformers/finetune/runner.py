@@ -19,19 +19,18 @@ import re
 from typing import List, Optional
 
 import torch
-from torch.nn import Module
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
-import sparseml.core.session as session_manager
+import sparseml
 from sparseml.core.recipe import Recipe, StageRunType
-from sparseml.modifiers.utils.pytorch_helpers import PADDING_MASK_COLUMN_NAME
 from sparseml.pytorch.model_load.helpers import (
     get_completed_stages,
     get_session_model,
     save_completed_stages,
     save_model_and_recipe,
 )
+from sparseml.pytorch.utils import tensors_to_device
 from sparseml.transformers.finetune.data import TextGenerationDataset
 from sparseml.transformers.finetune.data.data_args import DataTrainingArguments
 from sparseml.transformers.finetune.data.data_helpers import (
@@ -40,9 +39,11 @@ from sparseml.transformers.finetune.data.data_helpers import (
 )
 from sparseml.transformers.finetune.model_args import ModelArguments
 from sparseml.transformers.finetune.training_args import TrainingArguments
-from sparseml.utils.fsdp.context import summon_full_params_context
-from sparseml.utils.fsdp.helpers import is_fsdp_model, unwrap_and_export_model
-from sparseml.utils.pytorch import qat_active
+from sparseml.utils.fsdp.helpers import (
+    find_and_move_state_dicts_to_cpu,
+    is_fsdp_model,
+    unwrap_and_export_model,
+)
 
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -70,7 +71,6 @@ class StageRunner:
         data_args: "DataTrainingArguments",
         model_args: "ModelArguments",
         training_args: "TrainingArguments",
-        model: Module,
     ):
         self._data_args = data_args
         self._model_args = model_args
@@ -106,22 +106,28 @@ class StageRunner:
         elif isinstance(splits, List):
             splits = {_get_split_name(s): s for s in splits}
 
+        # default to custom dataset if dataset provided isn't a string
+        registry_id = self._data_args.dataset
+
+        if not isinstance(registry_id, str):
+            registry_id = "custom"
         for split_name, split_str in splits.items():
             dataset_manager = TextGenerationDataset.load_from_registry(
-                self._data_args.dataset_name,
+                registry_id,
                 data_args=self._data_args,
                 split=split_str,
                 tokenizer=tokenizer,
             )
 
-            store_padding_mask = False
-            if self._training_args.do_oneshot and split_name == "calibration":
-                store_padding_mask = True
-            raw_dataset = dataset_manager.get_raw_dataset(self._model_args.cache_dir)
-            tokenized_dataset = dataset_manager.tokenize_and_process(
-                raw_dataset, store_padding_mask=store_padding_mask
-            )
-            tokenized_datasets[split_name] = tokenized_dataset
+            dataset = self._data_args.dataset
+            if hasattr(dataset, "column_names") and "input_ids" in dataset.column_names:
+                # dataset is already tokenized
+                tokenized_datasets[split_name] = dataset
+            else:
+                # dataset needs to be tokenized
+                raw_dataset = dataset_manager.get_raw_dataset()
+                tokenized_dataset = dataset_manager.tokenize_and_process(raw_dataset)
+                tokenized_datasets[split_name] = tokenized_dataset
 
         self.datasets = make_dataset_splits(
             tokenized_datasets,
@@ -152,16 +158,18 @@ class StageRunner:
         calib_data = format_calibration_data(
             tokenized_dataset=self.get_dataset_split("calibration"),
             num_calibration_samples=self._data_args.num_calibration_samples,
+            do_shuffle=self._data_args.shuffle_calibration_samples,
             accelerator=self.trainer.accelerator,
         )
 
         # if we don't run a forward pass after initializing the FSDP model for the
         # first time, calls to summon_full_params will fail ¯\_(ツ)_/¯
         dummy_inp = dict(next(iter(calib_data)))
+        model_device = next(self.trainer.model.parameters()).device
+        dummy_inp = tensors_to_device(dummy_inp, model_device)
         with torch.no_grad():
-            dummy_inp.pop(PADDING_MASK_COLUMN_NAME, None)
             self.trainer.model(**dummy_inp)
-        torch.cuda.empty_cache()
+        self.trainer.accelerator.wait_for_everyone()
 
         self.trainer.one_shot(calib_data, stage=stage)
 
@@ -176,11 +184,22 @@ class StageRunner:
                     output_dir=self._output_dir,
                     tokenizer=self.tokenizer,
                 )
+                # only allow the main process move the state
+                # dicts to cpu
+                if self.trainer.accelerator.is_main_process:
+                    # assuming quantization is the last step
+                    # we no longer need the original model
+                    # and can safely delete it to save memory
+                    del self.trainer.model
+                    find_and_move_state_dicts_to_cpu(self._output_dir)
+
         else:
             save_model_and_recipe(
                 model=self.trainer.model,
                 save_path=self._output_dir,
                 tokenizer=self.tokenizer,
+                save_safetensors=self._training_args.save_safetensors,
+                save_compressed=self._training_args.save_compressed,
             )
 
     def train(self, checkpoint: str, stage: Optional[str] = None):
@@ -237,7 +256,9 @@ class StageRunner:
 
         recipe_obj = Recipe.create_instance(self._training_args.recipe)
         with self.trainer.accelerator.main_process_first():
-            completed_stages = get_completed_stages(self._model_args.model_name_or_path)
+            checkpoint_dir = self._model_args.model
+            completed_stages = get_completed_stages(checkpoint_dir)
+
         self.trainer.accelerator.wait_for_everyone()
 
         for stage in recipe_obj.stages:
@@ -281,14 +302,8 @@ class StageRunner:
                 save_completed_stages(self._output_dir, completed_stages)
 
             # setup for next stage
-            session = session_manager.active_session()
+            session = sparseml.active_session()
             session.reset_stage()
-
-            # log model sparsity
-            with summon_full_params_context(self.trainer.model):
-                if self.trainer.accelerator.is_main_process:
-                    if not qat_active(self.trainer.model):
-                        self.trainer.log_model_sparsification()
 
             # synchronize and clean up memory
             self.trainer.accelerator.wait_for_everyone()

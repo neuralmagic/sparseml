@@ -37,22 +37,28 @@ class Integrations(Enum):
 
 def resolve_integration(
     source_path: Union[Path, str, None] = None,
+    source_model: Optional["PreTrainedModel"] = None,  # noqa F401
     integration: Optional[str] = None,
 ) -> str:
     """
     Resolve the integration to use.
 
-    If integration is not provided, attempt to infer it from the source_path.
+    If integration is not provided, attempt to infer it from the source_path or model.
     Once the integration is resolved, perform the hot import to register
     the integration helper functions.
 
     :param source_path: The path to the PyTorch model to export.
+    :param source_model: An instantiated model to export
     :param integration: Optional name of the integration to use. If not provided,
         will attempt to infer it from the source_path.
     :return: The name of the integration to use for exporting the model.
     """
 
     integration = integration or _infer_integration_from_source_path(source_path)
+
+    # attempt to infer transformers based on model attribute
+    if source_model is not None and hasattr(source_model, "config_class"):
+        integration = Integrations.transformers.value
 
     if integration == Integrations.image_classification.value:
         import sparseml.pytorch.image_classification.integration_helper_functions  # noqa F401
@@ -70,6 +76,22 @@ def resolve_integration(
             "the available integrations: "
             f"{[integration.value for integration in Integrations]}."
         )
+
+
+def remove_past_key_value_support_from_config(config):
+    """
+    Modify config of the causal language model so that it turns off the
+    past key value support. This means that the model initialized from
+    this config will not take past key values as input and will not output
+    past key values.
+    """
+    # not take past_key_values as input
+    config.is_decoder = True
+    # whether to use past key values an input
+    config.use_past = False
+    # whether to output past key values
+    config.use_cache = False
+    return config
 
 
 def _infer_integration_from_source_path(
@@ -166,6 +188,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
         default=export_model,
     )
     apply_optimizations: Optional[Callable[[Any], None]] = Field(
+        None,
         description="A function that takes:"
         " - path to the exported model"
         " - names of the optimizations to apply"
@@ -201,6 +224,7 @@ class IntegrationHelperFunctions(RegistryMixin, BaseModel):
     )
 
     deployment_directory_files_optional: Optional[List[str]] = Field(
+        None,
         description="A list that describes the "
         "optional expected files of the deployment directory",
     )

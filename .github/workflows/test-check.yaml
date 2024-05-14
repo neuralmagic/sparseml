@@ -52,7 +52,7 @@ jobs:
       - name: "Checking if sparseml.pytorch was changed"
         id: pytorch-check
         run: >
-          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/pytorch|setup.py|.github")
+          ((git diff --name-only origin/main HEAD | grep -E "[src|tests]/sparseml/modifiers|pytorch|setup.py|.github")
           || (echo $GITHUB_REF | grep -E "refs/heads/[release/|main]"))
           && echo "::set-output name=output::1" || echo "::set-output name=output::0"
       - name: "Checking if sparseml.export was changed"
@@ -140,9 +140,14 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   pytorch-tests:
-    runs-on: ubuntu-22.04
+    runs-on: k8s-eng-gpu-64G-v100-32G
     env:
       SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -160,13 +165,18 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision,onnxruntime]
+        run: pip3 install .[dev,torchvision,onnxruntime,transformers]
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-pytorch-tests:
-    runs-on: ubuntu-22.04
+    runs-on: k8s-eng-gpu-64G-v100-32G
     env:
       SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     needs: test-setup
     if: ${{needs.test-setup.outputs.pytorch == 1}}
     steps:
@@ -184,7 +194,7 @@ jobs:
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
       - name: "⚙️ Install dependencies"
-        run: pip3 install .[dev,torchvision,onnxruntime] torch==1.9.1
+        run: pip3 install .[dev,torchvision,onnxruntime,transformers]
       - name: "🔬 Running pytorch tests"
         run: make test TARGETS=pytorch
   compat-pytorch-1_9-onnx-tests:
@@ -212,9 +222,14 @@ jobs:
       - name: "🔬 Running onnx tests"
         run: make test TARGETS=onnx
   transformers-tests:
-    runs-on: ubuntu-22.04
+    runs-on: k8s-eng-gpu-64G-v100-32G
     env:
       SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     needs: test-setup
     if: ${{needs.test-setup.outputs.transformers == 1}}
     steps:
@@ -231,6 +246,15 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/compressed-tensors"
+          path: "compressed-tensors"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install compressed-tensors dependencies"
+        run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
+      - name: "Clean compressed-tensors directory"
+        run: rm -r compressed-tensors/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torch,transformers,onnxruntime]
       - name: "🔬 Running transformers tests"
@@ -255,6 +279,15 @@ jobs:
         run: pip3 install -U pip && pip3 install setuptools sparsezoo/
       - name: "Clean sparsezoo directory"
         run: rm -r sparsezoo/
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/compressed-tensors"
+          path: "compressed-tensors"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install compressed-tensors dependencies"
+        run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
+      - name: "Clean compressed-tensors directory"
+        run: rm -r compressed-tensors/
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,torch,transformers,torchvision,onnxruntime]
       - name: "🔬 Running export tests"

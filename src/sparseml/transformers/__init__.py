@@ -17,45 +17,21 @@ Tools for integrating SparseML with transformers training flows
 """
 
 # flake8: noqa
-
-import logging as _logging
-
 from sparseml.analytics import sparseml_analytics as _analytics
+from sparseml.transformers.base import check_transformers_install
 
-
-try:
-    import datasets as _datasets
-    import transformers as _transformers
-except ImportError:
-    raise ImportError("Please install sparseml[transformers] to use this pathway")
-
-
+check_transformers_install()
 _analytics.send_event("python__transformers__init")
 
-
-_LOGGER = _logging.getLogger(__name__)
-
-
-def _check_transformers_install():
-    # check for NM integration in transformers version
-    import transformers as _transformers
-
-    if not getattr(_transformers, "NM_INTEGRATED", False):
-        message = (
-            "****************************************************************\n"
-            "WARNING: It appears that the Neural Magic fork of Transformers is not installed!\n"
-            "This is CRITICAL for the proper application of quantization in SparseML flows.\n\n"
-            "To resolve this, please run: `pip uninstall transformers;pip install nm-transformers`\n"
-            "Failing to do so is UNSUPPORTED and may significantly affect model performance.\n"
-            "****************************************************************"
-        )
-        _LOGGER.warning(message)
-
-
-_check_transformers_install()
 
 # isort: skip_file
 # (import order matters for circular import avoidance)
 from .utils import *
+from .sparsification import (
+    SparseAutoModel,
+    SparseAutoModelForCausalLM,
+    SparseAutoConfig,
+    SparseAutoTokenizer,
+)
 from .export import *
 from .finetune import *

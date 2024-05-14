@@ -146,11 +146,9 @@ def test_log_ready(
         (0.1, "epoch", does_not_raise()),
         # batch and step frequency types need
         # log_frequency to be an integer
-        (0.1, "batch", pytest.raises(TypeError)),
         (0.1, "step", pytest.raises(TypeError)),
         # negative log_frequency is invalid
         (-1, "epoch", pytest.raises(ValueError)),
-        (-1, "batch", pytest.raises(ValueError)),
         (-1, "step", pytest.raises(ValueError)),
     ],
 )

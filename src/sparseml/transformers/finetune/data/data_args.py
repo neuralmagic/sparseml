@@ -55,8 +55,15 @@ class CustomDataTrainingArguments(DVCDatasetTrainingArguments):
         metadata={"help": "Column names to remove after preprocessing custom datasets"},
     )
 
-    preprocessing_func: Optional[Callable] = field(
-        default=None, metadata={"help": "The preprcessing function to apply"}
+    preprocessing_func: Union[None, str, Callable] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The preprocessing function to apply ",
+                "or the preprocessing func name in "
+                "src/sparseml/transformers/utils/preprocessing_functions.py",
+            )
+        },
     )
 
 
@@ -70,9 +77,14 @@ class DataTrainingArguments(CustomDataTrainingArguments):
     arguments to be able to specify them on the command line
     """
 
-    dataset_name: Optional[str] = field(
+    dataset: Optional[str] = field(
         default=None,
-        metadata={"help": "The name of the dataset to use (via the datasets library)"},
+        metadata={
+            "help": (
+                "The name of the dataset to use (via the datasets library). "
+                "Supports input as a string or DatasetDict from HF"
+            )
+        },
     )
     dataset_config_name: Optional[str] = field(
         default=None,
@@ -105,6 +117,12 @@ class DataTrainingArguments(CustomDataTrainingArguments):
     num_calibration_samples: Optional[int] = field(
         default=512,
         metadata={"help": "Number of samples to use for one-shot calibration"},
+    )
+    shuffle_calibration_samples: Optional[bool] = field(
+        default=True,
+        metadata={
+            "help": "whether to shuffle the dataset before selecting calibration data"
+        },
     )
     streaming: Optional[bool] = field(
         default=False,

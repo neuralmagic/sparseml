@@ -21,7 +21,8 @@ from typing import Any, Dict, List, Optional
 import torch
 from torch.nn import Module
 
-import sparseml.core.session as session_manager
+import sparseml
+from safetensors import safe_open
 from sparseml.core.framework import Framework
 from sparseml.pytorch.sparsification.quantization.helpers import (
     initialize_channel_wise_scale_zp,
@@ -100,9 +101,9 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     orig_state_dict = model.state_dict()
 
     # apply structural changes to the model
-    if not session_manager.active_session():
-        session_manager.create_session()
-    session_manager.pre_initialize_structure(
+    if not sparseml.active_session():
+        sparseml.create_session()
+    sparseml.pre_initialize_structure(
         model=model, recipe=recipe_path, framework=Framework.pytorch
     )
 
@@ -110,7 +111,7 @@ def apply_recipe_structure_to_model(model: Module, recipe_path: str, model_path:
     if recipe_path is None:
         return
 
-    session = session_manager.active_session()
+    session = sparseml.active_session()
     num_stages = len(session.lifecycle.recipe_container.compiled_recipe.stages)
     msg = (
         "an unstaged recipe"
@@ -143,7 +144,8 @@ def reload_model_state(
     weight_files = [
         os.path.join(load_path, os.path.basename(f))
         for f in files
-        if f.startswith("pytorch_model") and f.endswith("bin")
+        if (f.startswith("pytorch_model") and f.endswith("bin"))
+        or (f.endswith("safetensors"))
     ]
     if not weight_files:
         _LOGGER.warning(
@@ -168,7 +170,10 @@ def reload_model_state(
     # change in keys due to architecture changes, reload statedict
     loaded_state_dict = {}
     for f in weight_files:
-        dd = torch.load(f, map_location="cpu")
+        if f.endswith("safetensors"):
+            dd = load_safetensors_state_dict(file_path=f)
+        else:
+            dd = torch.load(f, map_location="cpu")
         loaded_state_dict.update(dd)
 
     _, missing, unexpected, mismatched, _, _ = model._load_pretrained_model(
@@ -229,7 +234,11 @@ def reload_model_from_checkpoint(model: Module, checkpoint: Optional[str] = None
 
 
 def save_model_and_recipe(
-    model: Module, save_path: str, tokenizer: Optional[Any] = None
+    model: Module,
+    save_path: str,
+    tokenizer: Optional[Any] = None,
+    save_safetensors: bool = False,
+    save_compressed: bool = False,
 ):
     """
     Save a model, tokenizer and the currently loaded recipe to file
@@ -237,9 +246,13 @@ def save_model_and_recipe(
     :param model: pytorch model to save
     :param save_path: path to save output to
     :param tokenizer: model tokenizer to save
+    :param save_safetensors: whether to save as safetensors or pickle (bin)
+    :param save_compressed: whether to compress sparse weights on disk
     """
 
-    model.save_pretrained(save_path)
+    model.save_pretrained(
+        save_path, save_compressed=save_compressed, safe_serialization=save_safetensors
+    )
 
     if tokenizer is not None:
         tokenizer.save_pretrained(save_path)
@@ -247,7 +260,7 @@ def save_model_and_recipe(
     _LOGGER.info("Saving output to {}".format(os.path.abspath(save_path)))
 
     recipe_path = os.path.join(save_path, RECIPE_FILE_NAME)
-    session = session_manager.active_session()
+    session = sparseml.active_session()
     recipe_yaml_str = session.get_serialized_recipe()
     with open(recipe_path, "w") as fp:
         fp.write(recipe_yaml_str)
@@ -290,7 +303,7 @@ def get_session_model() -> Module:
     :return: pytorch module stored by the active SparseSession, or None if no session
     is active
     """
-    session = session_manager.active_session()
+    session = sparseml.active_session()
     if not session:
         return None
 
@@ -298,19 +311,20 @@ def get_session_model() -> Module:
     return active_model
 
 
-def get_completed_stages(checkpoint_dir: str) -> List[str]:
+def get_completed_stages(checkpoint_dir: Any) -> List[str]:
     """
     Given a checkpoint directory for a staged run, get the list of stages that
-    have completed in a prior run.
+    have completed in a prior run if the checkpoint_dir is a string
 
     :param checkpoint_dir: path to staged checkpoint
     :return: list of completed stage names
     """
-    stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
-    if os.path.exists(stage_path):
-        with open(stage_path) as stage_file:
-            stage_data = json.load(stage_file)
-            return stage_data["completed"]
+    if isinstance(checkpoint_dir, str):
+        stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
+        if os.path.exists(stage_path):
+            with open(stage_path) as stage_file:
+                stage_data = json.load(stage_file)
+                return stage_data["completed"]
 
     return []
 
@@ -325,3 +339,14 @@ def save_completed_stages(checkpoint_dir: str, completed_stages: List[str]):
     stage_path = os.path.join(checkpoint_dir, COMPLETED_STAGES_FILENAME)
     with open(stage_path, "w") as out_file:
         json.dump({"completed": completed_stages}, out_file)
+
+
+def load_safetensors_state_dict(file_path: str) -> Dict[str, torch.Tensor]:
+    """
+    Load a safetensors file from disk
+
+    :param file_path: path to the safetensors file
+    :return: dictionary of safetensors data
+    """
+    with safe_open(file_path, framework="pt", device="cpu") as f:
+        return {key: f.get_tensor(key) for key in f.keys()}

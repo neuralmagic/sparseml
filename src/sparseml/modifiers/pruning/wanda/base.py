@@ -18,7 +18,6 @@ from typing import Dict, List, Optional, Union
 from sparseml.core import Modifier
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
-from sparseml.utils import ALL_TOKEN
 
 
 __all__ = ["WandaPruningModifier"]
@@ -57,7 +56,7 @@ class WandaPruningModifier(Modifier):
     owl_lmbda: Optional[float] = None
     mask_structure: str = "0:0"
     sequential_update: Optional[bool] = False
-    targets: Union[str, List[str], None] = ALL_TOKEN
+    targets: Union[str, List[str], None] = None
     compressible_layers_: Optional[List] = None
     prunen_: Optional[int] = None
     prunem_: Optional[int] = None
@@ -95,22 +94,11 @@ class WandaPruningModifier(Modifier):
             # single sparsity will be applied to all layers
             return
 
-        if not isinstance(self.targets, List):
-            raise ValueError(
-                "Layer targets must be a list when specifying layer-wise"
-                f" sparsity. Got {type(self.targets)}"
-            )
+        target_layers = list(self.compressible_layers_.keys())
 
-        if len(self.targets) != len(self.sparsity):
+        if len(target_layers) != len(self.sparsity):
             raise ValueError(
                 "Number of layer targets must match the number of "
-                f"sparsities. Got {len(self.targets)} layers and "
+                f"sparsities. Got {len(target_layers)} layers and "
                 f"{len(self.sparsity)} sparsities"
             )
-
-        for layer_name in self.targets:
-            if layer_name.startswith("re:"):
-                raise ValueError(
-                    "Using regular expressions for layer-wise sparsity "
-                    f"profiles is not permitted. Found {layer_name}"
-                )

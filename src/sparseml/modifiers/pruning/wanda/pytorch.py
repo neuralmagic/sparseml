@@ -17,6 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from sparseml.core.model.base import ModifiableModel
 from sparseml.core.state import State
@@ -59,10 +60,14 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         :param state: session state storing input model and calibration data
         :param kwargs: Unused, kept to conform to the parent method signature
         """
-        self._validate_layerwise_sparsity()
-
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
+
+        if self.targets is None:
+            # if no targets are provided, default to the modules that shouldn't be
+            # split by FSDP. For Transformers models this is equivalent to the
+            # decoder layers (ie LlamaDecoderLayer)
+            self.targets = modifiable_model.get_no_split_params()
 
         self.initialize_compression(modifiable_model, calibration_dataloader)
         self.apply_compression(calibration_dataloader)
@@ -86,17 +91,23 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
         self.model = self.model.model
         self.layer_compressors_ = []
         self._infer_mask_block_size()
+
         if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
+            _LOGGER.info(
+                "Inferring layer-wise sparsities from "
+                f"{len(dataloader)} calibration samples..."
+            )
             self.sparsity = self._infer_layer_sparsity(dataloader)
         self._validate_layerwise_sparsity()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
-            layer_sparsity = (
-                self.sparsity[name]
-                if isinstance(self.sparsity, Dict)
-                else self.sparsity
-            )
+            if isinstance(self.sparsity, Dict):
+                layer_sparsity = self.sparsity[name]
+            elif isinstance(self.sparsity, List):
+                layer_sparsity = self.sparsity[idx]
+            else:  # float
+                layer_sparsity = self.sparsity
             args = self._pruning_arguments(layer_sparsity)
             comp_cls = self._compression_class()
             compressor = LayerCompressor(comp_cls, self.model, layer, idx, name, args)
@@ -252,7 +263,7 @@ def _get_activations(model, data_loader, nsamples=128):
                 mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
             )
     device = next(model.parameters()).device
-    for batch in data_loader:
+    for batch in tqdm(data_loader):
         batch = {k: v.to(device) for k, v in batch.items()}
         model(**batch)
         batch = None

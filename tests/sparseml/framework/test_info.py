@@ -90,11 +90,11 @@ def test_framework_info_lifecycle(const_args):
     assert info, "No object returned for info constructor"
 
     # test serialization
-    info_str = info.json()
+    info_str = info.model_dump_json()
     assert info_str, "No json returned for info"
 
     # test deserialization
-    info_reconst = FrameworkInfo.parse_raw(info_str)
+    info_reconst = FrameworkInfo.model_validate_json(info_str)
     assert info == info_reconst, "Reconstructed does not equal original"
 
 
@@ -110,7 +110,7 @@ def test_save_load_framework_info():
         framework=Framework.unknown, package_versions={"unknown": "0.0.1"}
     )
     save_framework_info(info)
-    loaded_json = load_framework_info(info.json())
+    loaded_json = load_framework_info(info.model_dump_json())
     assert info == loaded_json
 
     test_path = tempfile.NamedTemporaryFile(suffix=".json", delete=False).name

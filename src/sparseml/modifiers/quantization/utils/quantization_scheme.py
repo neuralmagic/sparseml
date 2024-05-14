@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 from packaging import version
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from torch.nn import Identity
 
 
@@ -29,6 +29,8 @@ try:
     from torch import quantization as torch_quantization
 except Exception:
     torch_quantization = None
+
+from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
 
 
 __all__ = [
@@ -119,7 +121,8 @@ class QuantizationArgs(BaseModel):
             qconfig_kwargs=self.kwargs,
         )
 
-    @validator("strategy")
+    @field_validator("strategy")
+    @classmethod
     def validate_strategy(cls, value):
         valid_scopes = ["tensor", "channel"]
         if value not in valid_scopes:
@@ -261,7 +264,7 @@ class QuantizationScheme(BaseModel):
         """
         :return: YAML friendly string serialization
         """
-        dict_repr = self.dict()
+        dict_repr = self.model_dump()
         dict_repr = {
             key: val if val is not None else "null" for key, val in dict_repr.items()
         }
@@ -360,9 +363,7 @@ def get_observer(
 
     observer_kwargs["observer"] = observer_cls
     observer_kwargs.update(qconfig_kwargs or {})
-    observer = torch_quantization.FakeQuantize.with_args(
-        **observer_kwargs,
-    )
+    observer = FakeQuantizeWrapper.with_args(**observer_kwargs)
 
     return observer
 

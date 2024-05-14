@@ -23,7 +23,7 @@ import torch
 from click.testing import CliRunner
 from sparseml.pytorch.image_classification.export import main
 from sparseml.pytorch.models import resnet18
-from sparsezoo.analyze import ModelAnalysis
+from sparsezoo.analyze_v1 import ModelAnalysis
 from sparsezoo.utils import validate_onnx
 
 

@@ -99,9 +99,8 @@ def collect_integrations(
             spec.loader.exec_module(module)
             _LOGGER.info(f"Auto collected {name} integration for eval")
         except ImportError as import_error:
-            raise ImportError(
-                f"Collection of {name} integration for eval failed"
-            ) from import_error
+            _LOGGER.warning(f"Collection of {name} integration for eval failed")
+            raise import_error
     else:
         raise ValueError(f"No registered integrations found for the given name {name}")
 

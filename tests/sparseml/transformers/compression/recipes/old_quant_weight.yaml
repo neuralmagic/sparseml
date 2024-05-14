@@ -1,0 +1,36 @@
+test_stage:
+    quant_modifiers:
+        QuantizationModifier:
+            ignore:
+                - model.layers.0.mlp.down_proj
+                - lm_head
+                - LlamaRotaryEmbedding
+                - LlamaRMSNorm
+                - SiLU
+                - MatMulLeftInput_QK
+                - MatMulRightInput_QK
+                - MatMulOutput_QK
+                - MatMulLeftInput_PV
+                - MatMulRightInput_PV
+                - MatMulOutput_PV
+            scheme_overrides:
+                Linear:
+                    weights:
+                        num_bits: 8
+                        symmetric: true
+                        strategy: "tensor"
+                    input_activations: null
+                    output_activations: null
+                Embedding:
+                    weights:
+                        num_bits: 8
+                        symmetric: true
+                        strategy: "tensor"
+                    input_activations: null
+                    output_activations: null
+        SparseGPTModifier:
+            sparsity: 0.0
+            block_size: 128
+            sequential_update: False
+            quantize: True
+            targets: ["re:model.layers.\\d+$"]

@@ -17,7 +17,6 @@ import os
 import pytest
 import torch
 
-from flaky import flaky
 from sparseml.pytorch.sparsification import MovementPruningModifier
 from sparseml.pytorch.utils import tensor_sparsity
 from tests.sparseml.pytorch.helpers import LinearNet
@@ -38,7 +37,7 @@ from tests.sparseml.pytorch.helpers import (  # noqa isort:skip
 )
 
 
-@flaky(max_runs=3, min_passes=2)
+@pytest.mark.flaky(reruns=3, min_passes=2)
 @pytest.mark.skipif(
     os.getenv("NM_ML_SKIP_PYTORCH_TESTS", False),
     reason="Skipping pytorch tests",

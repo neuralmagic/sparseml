@@ -18,7 +18,7 @@ limitations under the License.
 
 This repository is tested on Python 3.8-3.11, and Linux/Debian systems.
 It is recommended to install in a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your system in order.
-Currently supported ML Frameworks are the following: `torch>=1.1.0,<1.14`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
+Currently supported ML Frameworks are the following: `torch>=1.7.0`, `tensorflow>=1.8.0,<=2.0.0`, `tensorflow.keras >= 2.2.0`.
 
 Install with pip using:
 
@@ -62,8 +62,6 @@ TensorFlow V1 with GPU operations enabled:
 ```bash
 pip install sparseml[tf_v1_gpu]
 ```
-
-Depending on your device and CUDA version, you may need to install additional dependencies for using TensorFlow V1 with GPU operations. You can find these steps [here.](https://www.tensorflow.org/install/gpu#older_versions_of_tensorflow)
 
 Note, TensorFlow V1 is no longer being built for newer operating systems such as Ubuntu 20.04. 
 Therefore, SparseML with TensorFlow V1 is unsupported on these operating systems as well.

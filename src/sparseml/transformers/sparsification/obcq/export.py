@@ -76,15 +76,14 @@ from torch.nn import Module
 from transformers import AutoConfig
 from transformers.tokenization_utils_base import PaddingStrategy
 
-import sparseml.core.session as session_manager
+import sparseml
 from sparseml.optim import parse_recipe_variables
 from sparseml.pytorch.model_load.helpers import (
     RECIPE_FILE_NAME,
     apply_recipe_structure_to_model,
 )
 from sparseml.pytorch.utils import export_onnx
-from sparseml.transformers import SparseAutoTokenizer
-from sparseml.transformers.utils import SparseAutoModel
+from sparseml.transformers import SparseAutoModel, SparseAutoTokenizer
 from sparsezoo.utils.onnx import EXTERNAL_ONNX_DATA_NAME
 
 
@@ -295,7 +294,7 @@ def export_transformer_to_onnx(
     # creates a SparseSession and apply structure from the model's recipe
     recipe_path = os.path.join(model_path, RECIPE_FILE_NAME)
     if os.path.exists(recipe_path):
-        session_manager.create_session()
+        sparseml.create_session()
         apply_recipe_structure_to_model(
             model=model, recipe_path=recipe_path, model_path=model_path
         )

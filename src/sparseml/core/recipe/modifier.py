@@ -14,7 +14,7 @@
 
 from typing import Any, Dict, Optional
 
-from pydantic import root_validator
+from pydantic import model_validator
 
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
@@ -76,10 +76,10 @@ class RecipeModifier(RecipeBase):
         comb_args = args or RecipeArgs()
         self.args_evaluated = comb_args.evaluate_ext(self.args)
 
-        if shift is not None and "start" in self.args_evaluated:
+        if shift is not None and self.args_evaluated.get("start") is not None:
             self.args_evaluated["start"] += shift
 
-        if shift is not None and "end" in self.args_evaluated:
+        if shift is not None and self.args_evaluated.get("end") is not None:
             self.args_evaluated["end"] += shift
 
     def create_modifier(self, framework: Framework) -> "Modifier":
@@ -99,7 +99,8 @@ class RecipeModifier(RecipeBase):
             **self.args_evaluated,
         )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_modifier_type(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         modifier = {"group": values.pop("group")}
         assert len(values) == 1, "multiple key pairs found for modifier"

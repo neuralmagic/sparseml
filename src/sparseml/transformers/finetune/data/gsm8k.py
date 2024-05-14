@@ -28,11 +28,11 @@ class GSM8KDataset(TextGenerationDataset):
     :param tokenizer: tokenizer to use on dataset
     """
 
-    GSM_TEMPLATE = "Question: {question}.\nAnswer:"
+    GSM_TEMPLATE = "Question: {question}\nAnswer:"
 
     def __init__(self, data_args, split, tokenizer):
         data_args = deepcopy(data_args)
-        data_args.dataset_name = "gsm8k"
+        data_args.dataset = "gsm8k"
         super().__init__(
             text_column="text", data_args=data_args, split=split, tokenizer=tokenizer
         )
@@ -50,6 +50,7 @@ class GSM8KDataset(TextGenerationDataset):
         # helper fn for restructuring each dataset entry using the gsm template
         def restructure_fn(sample):
             sample["text"] = self.GSM_TEMPLATE.format(question=sample["question"])
+            sample[self.PROMPT_KEY] = sample["text"]
             if "answer" in sample:
                 sample["text"] += " " + sample["answer"]
             return sample
