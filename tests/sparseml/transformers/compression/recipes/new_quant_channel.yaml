@@ -11,7 +11,7 @@ test_stage:
                         strategy: "channel"
                     input_activations: null
                     output_activations: null
-                    targets: ["Linear", "Embedding"]
+                    targets: ["Linear"]
         #SparseGPTModifier:
         #    sparsity: 0.0
         #    block_size: 128

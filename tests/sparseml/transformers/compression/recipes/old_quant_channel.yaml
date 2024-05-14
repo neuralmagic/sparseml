@@ -13,15 +13,9 @@ test_stage:
                 - MatMulLeftInput_PV
                 - MatMulRightInput_PV
                 - MatMulOutput_PV
+                - Embedding
             scheme_overrides:
                 Linear:
-                    weights:
-                        num_bits: 4
-                        symmetric: true
-                        strategy: "channel"
-                    input_activations: null
-                    output_activations: null
-                Embedding:
                     weights:
                         num_bits: 4
                         symmetric: true

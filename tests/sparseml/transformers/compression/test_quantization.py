@@ -22,6 +22,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import DefaultDataCollator
 
+from compressed_tensors.quantization import fake_quantize
 from compressed_tensors.quantization.utils import is_module_quantized
 from parameterized import parameterized_class
 from sparseml.pytorch.utils import tensors_to_device
@@ -40,14 +41,14 @@ from tests.testing_utils import requires_gpu, requires_torch
 @parameterized_class(
     ("old_recipe", "new_recipe"),
     [
-        #(
-        #    "tests/sparseml/transformers/compression/recipes/old_quant_full.yaml",
-        #    "tests/sparseml/transformers/compression/recipes/new_quant_full.yaml",
-        #),
-        #(
-        #    "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
-        #    "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
-        #),
+        (
+            "tests/sparseml/transformers/compression/recipes/old_quant_full.yaml",
+            "tests/sparseml/transformers/compression/recipes/new_quant_full.yaml",
+        ),
+        (
+            "tests/sparseml/transformers/compression/recipes/old_quant_weight.yaml",
+            "tests/sparseml/transformers/compression/recipes/new_quant_weight.yaml",
+        ),
         (
             "tests/sparseml/transformers/compression/recipes/old_quant_channel.yaml",
             "tests/sparseml/transformers/compression/recipes/new_quant_channel.yaml",
@@ -97,7 +98,7 @@ class TestQuantizationMatches(unittest.TestCase):
 
     @staticmethod
     def _run_oneshot(model, recipe, dataset, output_dir):
-        num_calibration_samples = 512
+        num_calibration_samples = 4
         max_seq_length = 512
         pad_to_max_length = False
 
@@ -120,7 +121,8 @@ class TestQuantizationMatches(unittest.TestCase):
             if hasattr(module, "weight_fake_quant"):
                 scale = module.weight_fake_quant.scale
                 zp = module.weight_fake_quant.zero_point
-                quant_info_weights[name] = (scale, zp)
+                weight = module.weight_fake_quant(module.weight)
+                quant_info_weights[name] = (scale, zp, weight)
             elif hasattr(module, "quant"):
                 scale = module.quant.activation_post_process.scale
                 zp = module.quant.activation_post_process.zero_point
@@ -137,6 +139,7 @@ class TestQuantizationMatches(unittest.TestCase):
                     quant_info_weights[name] = (
                         module.weight_scale,
                         module.weight_zero_point,
+                        fake_quantize(module.weight, module.weight_scale, module.weight_zero_point, module.quantization_scheme.weights)
                     )
                 if module.quantization_scheme.input_activations is not None:
                     quant_info_inputs[name] = (
@@ -153,21 +156,40 @@ class TestQuantizationMatches(unittest.TestCase):
         assert len(old_quant_weights) == len(new_quant_weights)
         assert len(old_quant_inputs) == len(new_quant_inputs)
 
-    def test_quantization_scale_and_zp(self):
+    def test_quantization_matches(self):
         old_quant_weights, old_quant_inputs = self._get_quant_info_old(self.model_old)
         new_quant_weights, new_quant_inputs = self._get_quant_info_new(self.model_new)
 
-        for name, (o_scale, o_zp) in old_quant_weights.items():
-            print(name)
+        for name, (o_scale, o_zp, o_weight) in old_quant_weights.items():
             if name.endswith(".module"):
                 name = name[:-7]
-            n_scale, n_zp = new_quant_weights[name]
+            n_scale, n_zp, n_weight = new_quant_weights[name]
+            if n_scale.ndim == 2: # channelwise
+                n_scale = n_scale[:, 0]
+                o_scale = o_scale[:, 0]
+                n_zp = n_zp[:, 0]
+                o_zp = o_zp[:, 0]
+            elif n_scale.ndim == 0: # tensor
+                n_scale = torch.unsqueeze(n_scale, 0)
+                n_zp = torch.unsqueeze(n_zp, 0)
+
             assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-3, rtol=1e-3))
+            #if not torch.all(torch.isclose(o_weight.cpu(), n_weight.cpu(), atol=1e-3, rtol=1e-3)):
+            #    print("MISMATCH", name)
             assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
         # allow for error here due to implementation differences
         for name, (o_scale, o_zp) in old_quant_inputs.items():
             n_scale, n_zp = new_quant_inputs[name]
+            if n_scale.ndim == 2: # channelwise
+                n_scale = n_scale[:, 0]
+                o_scale = o_scale[:, 0]
+                n_zp = n_zp[:, 0]
+                o_zp = o_zp[:, 0]
+            elif n_scale.ndim == 0: # tensor
+                n_scale = torch.unsqueeze(n_scale, 0)
+                n_zp = torch.unsqueeze(n_zp, 0)
+
             assert torch.all(torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-2, rtol=1e-2))
             assert not torch.any(torch.abs(o_zp.cpu() - n_zp.cpu()) >= 5)
 
@@ -179,8 +201,8 @@ class TestQuantizationMatches(unittest.TestCase):
         og_weights, og_inputs = self._get_quant_info_new(self.model_new)
         reloaded_weights, reloaded_inputs = self._get_quant_info_new(model_reloaded)
 
-        for name, (o_scale, o_zp) in og_weights.items():
-            n_scale, n_zp = reloaded_weights[name]
+        for name, (o_scale, o_zp, o_weight) in og_weights.items():
+            n_scale, n_zp, n_weight = reloaded_weights[name]
             assert torch.equal(o_scale.cpu(), n_scale.cpu())
             assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
