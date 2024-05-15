@@ -32,6 +32,7 @@ from compressed_tensors.quantization import (
     freeze_module_quantization,
 )
 from safetensors import safe_open
+from sparseml.pytorch.utils.helpers import tensor_sparsity
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 from sparseml.transformers.compression.sparsity_config import SparsityConfigMetadata
 
@@ -78,12 +79,9 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         tmp_path / "oneshot_out", torch_dtype=dtype
     )
 
-    def compute_tensor_sparsity(t: torch.Tensor):
-        return t.eq(0).sum().item() / t.numel()
-
     # assert that sample layer has the intended sparsity
     assert math.isclose(
-        compute_tensor_sparsity(model.state_dict()[one_of_sparse_weights]),
+        tensor_sparsity(model.state_dict()[one_of_sparse_weights]),
         expected_sparsity,
         rel_tol=1e-3,
     )
