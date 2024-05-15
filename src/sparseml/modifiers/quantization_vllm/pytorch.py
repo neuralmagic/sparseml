@@ -180,8 +180,4 @@ class vLLMQuantizationModifierPyTorch(vLLMQuantizationModifier):
                     "of calibration batch tokens "
                     f"({token_count}/{total_token_count} tokens). "
                     "This could result may harm the quantization quality."
-                    "\nTo address this issue either:"
-                    "\n1) Increase the batch_size of the calibration inputs"
-                    "\n2) Use calibration data, that is more representative "
-                    "of the original dataset used for the model"
                 )
