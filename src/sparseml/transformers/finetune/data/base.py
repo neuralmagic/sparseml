@@ -195,17 +195,30 @@ class TextGenerationDataset(RegistryMixin):
         column_names = dataset.column_names
         if isinstance(column_names, dict):
             column_names = column_names[list(column_names)[0]]
-        dataset = self.map(
-            dataset,
-            function=label_fn,
-            batched=False,  # not compatible with batching due to needing row lengths
-            remove_columns=[self.PROMPT_KEY]
-            if self.PROMPT_KEY in column_names
-            else None,
-            num_proc=self.data_args.preprocessing_num_workers,
-            load_from_cache_file=not self.data_args.overwrite_cache,
-            desc="Adding labels",
-        )
+
+        if hasattr(dataset, "features") and "labels" in dataset.features:
+            # labels are already in the dataset,
+            # we don't need to add them
+            pass
+        else:
+            _LOGGER.info(
+                "The dataset does not have labels in the dataset. "
+                "Assuming that the model is a text-generation "
+                "model, adding the labels under the 'labels' key."
+            )
+            dataset = self.map(
+                dataset,
+                function=label_fn,
+                # not compatible with batching
+                # due to needing row lengths
+                batched=False,
+                remove_columns=[self.PROMPT_KEY]
+                if self.PROMPT_KEY in column_names
+                else None,
+                num_proc=self.data_args.preprocessing_num_workers,
+                load_from_cache_file=not self.data_args.overwrite_cache,
+                desc="Adding labels",
+            )
         print(dataset.column_names)
 
         return dataset
