@@ -116,6 +116,8 @@ class SessionManagerMixIn:
         if self.is_fsdp_enabled:
             self._prepare_model_for_fsdp()
 
+        self.min_tokens_per_group = data_args.min_tokens_per_group
+
     def initialize_session(
         self,
         epoch: float,
@@ -416,6 +418,7 @@ class SessionManagerMixIn:
             start=-1,
             copy_data=False,
             accelerator=self.accelerator,
+            min_tokens_per_group=self.min_tokens_per_group,
         )
 
         # log model sparsity

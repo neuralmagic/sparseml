@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from itertools import cycle
 from typing import Callable, Dict, Optional
 
@@ -21,13 +20,10 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from compressed_tensors.quantization.observers.helpers import get_observer_token_count
 from sparseml.pytorch.utils import tensors_module_forward, tensors_to_device
 
 
 __all__ = ["apply_pad_mask_to_batch", "run_calibration_forward"]
-
-_LOGGER = logging.getLogger(__name__)
 
 
 def apply_pad_mask_to_batch(batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -50,7 +46,6 @@ def run_calibration_forward(
     calibration_function: Optional[Callable] = None,
     device: Optional[str] = None,
     mask_padding: bool = False,
-    undercalibrated_module_treshold: float = 0.2,
 ):
     """
     Helper function used by one-shot modifiers, runs calibration data through a model to
@@ -63,9 +58,6 @@ def run_calibration_forward(
     :param calibration_function: option to pass a custom forward function for model
     :param device: option to move the model to a specific device before calibration
     :param mask_padding: whether to zero out padding tokens during calibration
-    :param undercalibrated_module_treshold: the minimum percentage of tokens
-        (out of all the tokens in a batch) a module should receive during each
-        forward pass of the calibration
     """
     model.eval()
 
@@ -93,41 +85,3 @@ def run_calibration_forward(
         batch = tensors_to_device(batch, model_device)
         with torch.no_grad():
             forward_fn(batch, module=model)
-        check_for_undercalibrated_modules(
-            batch["input_ids"], model, undercalibrated_module_treshold
-        )
-
-
-def check_for_undercalibrated_modules(
-    batch: torch.Tensor, model: Module, threshold: float
-):
-    """
-    A helper function that warns when a module has seen
-    fewer than threshold % of all the tokens in the batch
-
-    :param batch: the batch of tokens (batch_size, sequence_length)
-    :param model: the model to investigate
-    :param threshold: the minimum percentage of tokens
-        (out of all the tokens in a batch) a module should
-        receive during each forward pass of the calibration
-    """
-    total_token_count = len(batch.flatten())
-    counter = get_observer_token_count(model)
-    for module_name, token_count in counter.items():
-        if token_count is None:
-            # the module has not been observed
-            # or its token_count is not being recorded
-            # by the observer (refer to the observer's
-            # implementation in the source code)
-            continue
-        if token_count / total_token_count < threshold:
-            _LOGGER.warning(
-                f"The module_name: {module_name} "
-                f"received less than {int(threshold * 100)}% "
-                f"of calibration batch tokens ({token_count} tokens). "
-                "This could result may harm the quantization quality."
-                "\nTo address this issue either:"
-                "\n1) Increase the batch_size of the calibration inputs"
-                "\n2) Use calibration data, that is more representative "
-                "of the original dataset used for the model"
-            )
