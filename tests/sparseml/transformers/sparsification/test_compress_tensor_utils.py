@@ -48,6 +48,7 @@ from sparseml.transformers.compression.sparsity_config import SparsityConfigMeta
 )
 def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     recipe_str = "tests/sparseml/transformers/obcq/recipes/test_tiny2.yaml"
+    expected_sparsity = 0.5
     model_path = "Xenova/llama2.c-stories15M"
     device = "cuda:0"
     if not torch.cuda.is_available():
@@ -57,6 +58,7 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     num_calibration_samples = 64
     output_dir = tmp_path / "oneshot_out"
     splits = {"calibration": "train[:10%]"}
+    one_of_sparse_weights = "model.layers.1.mlp.up_proj.weight"
 
     # create a sparse model
     oneshot(
@@ -76,8 +78,15 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         tmp_path / "oneshot_out", torch_dtype=dtype
     )
 
-    inferred_global_sparsity = SparsityConfigMetadata.infer_global_sparsity(model)
-    assert math.isclose(inferred_global_sparsity, 12.234, rel_tol=1e-3)
+    def compute_tensor_sparsity(t: torch.Tensor):
+        return t.eq(0).sum().item() / t.numel()
+
+    # assert that sample layer has the intended sparsity
+    assert math.isclose(
+        compute_tensor_sparsity(model.state_dict()[one_of_sparse_weights]),
+        expected_sparsity,
+        rel_tol=1e-3,
+    )
     inferred_structure = SparsityConfigMetadata.infer_sparsity_structure()
     assert inferred_structure == "0:0"
 
@@ -95,7 +104,9 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         if (not compressed and config is None)
         else "sparse_bitmask"
     )
-    assert sparsity_config["global_sparsity"] == inferred_global_sparsity
+    assert sparsity_config[
+        "global_sparsity"
+    ] == SparsityConfigMetadata.infer_global_sparsity(model)
     assert sparsity_config["sparsity_structure"] == inferred_structure
 
     dense_model = SparseAutoModelForCausalLM.from_pretrained(
