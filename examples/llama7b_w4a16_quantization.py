@@ -10,16 +10,10 @@ test_stage:
             config_groups:
                 group_0:
                     weights:
-                        num_bits: 8
+                        num_bits: 4
                         type: "int"
                         symmetric: true
                         strategy: "channel"
-                    input_activations:
-                        num_bits: 8
-                        type: "int"
-                        symmetric: true
-                        dynamic: True
-                        strategy: "token"
                     targets: ["Linear"]
         SparseGPTModifier:
             sparsity: 0.0
@@ -44,7 +38,7 @@ max_seq_length = 512
 pad_to_max_length = False
 num_calibration_samples = 512
 
-# apply recipe to the model and save quantized output in an int8 compressed format
+# apply recipe to the model and save quantized output in an int4 packed format
 oneshot(
     model=model,
     dataset=dataset,
