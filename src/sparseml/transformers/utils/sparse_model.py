@@ -122,6 +122,7 @@ class SparseAutoModel:
     def masked_language_modeling_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        recipe: Optional[Union[str, Path]] = None,
         **kwargs,
     ) -> Module:
         """
@@ -148,6 +149,14 @@ class SparseAutoModel:
             model = AutoModelForMaskedLM.from_pretrained(
                 model_name_or_path,
                 **kwargs,
+            )
+
+        recipe = resolve_recipe(recipe, model_name_or_path)
+        if recipe:
+            apply_recipe_structure_to_model(
+                model=model,
+                model_path=model_name_or_path,
+                recipe_path=recipe,
             )
 
         log_model_load(model, model_name_or_path, model_type, delayed)
@@ -192,6 +201,7 @@ class SparseAutoModel:
     def question_answering_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        recipe: Optional[Union[str, Path]] = None,
         **kwargs,
     ) -> Module:
         """
@@ -214,6 +224,13 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        recipe = resolve_recipe(recipe, model_name_or_path)
+        if recipe:
+            apply_recipe_structure_to_model(
+                model=model,
+                model_path=model_name_or_path,
+                recipe_path=recipe,
+            )
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -254,6 +271,7 @@ class SparseAutoModel:
     def text_classification_from_pretrained(
         model_name_or_path: str,
         model_type: str = "model",
+        recipe: Optional[Union[str, Path]] = None,
         **kwargs,
     ) -> Module:
         """
@@ -276,6 +294,15 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+
+        recipe = resolve_recipe(recipe, model_name_or_path)
+        if recipe:
+            apply_recipe_structure_to_model(
+                model=model,
+                model_path=model_name_or_path,
+                recipe_path=recipe,
+            )
+
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
@@ -351,6 +378,7 @@ class SparseAutoModel:
     def token_classification_from_pretrained(
         model_name_or_path: str,
         model_type: str,
+        recipe: Optional[Union[str, Path]] = None,
         **kwargs,
     ) -> Module:
         """
@@ -373,6 +401,13 @@ class SparseAutoModel:
             model_name_or_path,
             **kwargs,
         )
+        recipe = resolve_recipe(recipe, model_name_or_path)
+        if recipe:
+            apply_recipe_structure_to_model(
+                model=model,
+                model_path=model_name_or_path,
+                recipe_path=recipe,
+            )
         log_model_load(model, model_name_or_path, model_type, delayed)
 
         return model
