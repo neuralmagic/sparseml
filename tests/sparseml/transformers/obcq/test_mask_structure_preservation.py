@@ -32,7 +32,9 @@ def tensor_follows_mask_structure(tensor, mask: str = "2:4"):
     """
     :param tensor: tensor to check
     :param mask: mask structure to check for, in the format "n:m"
-    :return: True if the tensor follows the mask structure, False otherwise
+    :return: True if the tensor follows the mask structure, False otherwise.
+        Note, some weights can incidentally be zero, so we check for
+        atleast n zeros in each chunk of size m
     """
     import torch
 
@@ -43,8 +45,10 @@ def tensor_follows_mask_structure(tensor, mask: str = "2:4"):
     # Count the number of zeros in each chunk
     zero_counts = (tensor == 0).sum(dim=1)
 
-    # Check if the number of zeros in each chunk is n
-    return torch.all(zero_counts == n)
+    # Check if the number of zeros in each chunk atleast n
+    # Greater than sign is needed as some weights can incidentally
+    # be zero
+    return torch.all(zero_counts >= n)
 
 
 @requires_torch
