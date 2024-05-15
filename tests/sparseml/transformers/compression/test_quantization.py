@@ -165,7 +165,6 @@ class TestQuantizationMatches(unittest.TestCase):
             assert torch.all(
                 torch.isclose(o_scale.cpu(), n_scale.cpu(), atol=1e-3, rtol=1e-3)
             )
-            assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(

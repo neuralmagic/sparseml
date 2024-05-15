@@ -148,11 +148,13 @@ def intialize_model_from_path(
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
+        tie_word_embeddings=model_args.tie_word_embeddings,
     )
     teacher_config = (
         AutoConfig.from_pretrained(
             model_args.distill_teacher,
             use_auth_token=True if model_args.use_auth_token else None,
+            tie_word_embeddings=model_args.tie_word_embeddings,
         )
         if model_args.distill_teacher
         else None
@@ -255,7 +257,14 @@ def main(
     for training and eval
     :param training_args: Arguments pertaining to training loop configuration
     """
-
+    # Temporary warning, to be removed
+    if model_args.tie_word_embeddings is True:
+        _LOGGER.warning(
+            "The tie_word_embeddings flag is by default set to False. "
+            "This guarantees that the one-shot algorithm saves the final "
+            "weights without errors. Detected tie_word_embeddings=True. "
+            "This may cause issues with the one-shot algorithm on save. "
+        )
     # Setup logging
     log_level = training_args.get_process_log_level()
     _LOGGER.setLevel(log_level)
