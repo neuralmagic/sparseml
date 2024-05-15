@@ -195,7 +195,12 @@ class TextGenerationDataset(RegistryMixin):
         column_names = dataset.column_names
         if isinstance(column_names, dict):
             column_names = column_names[list(column_names)[0]]
-        if "labels" not in dataset.features:
+
+        if hasattr(dataset, "features") and "labels" in dataset.features:
+            # labels are already in the dataset,
+            # we don't need to add them
+            pass
+        else:
             _LOGGER.info(
                 "The dataset does not have labels in the dataset. "
                 "Assuming that the model is a text-generation "
