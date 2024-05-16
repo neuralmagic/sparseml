@@ -6,7 +6,7 @@ the Ultra Chat 200k dataset.
 
 ## Recipe Summary
 
-The recipe used for this flow is located in [2:4_w4a16_recipe.yaml](/2:4_w4a16_recipe.yaml). It contains 3 stages that are outlined below.
+The recipe used for this flow is located in [2:4_w4a16_recipe.yaml](./2:4_w4a16_recipe.yaml). It contains 3 stages that are outlined below.
 
 
 ### Stage 1: Sparsification
@@ -36,11 +36,11 @@ will save a checkpoint of the model after each stage.
 
 This pathway can also be run in sharded mode across multiple GPUs using Pytorch FSDP. To
 launch the FSDP version of the example script, update the `num_processes` field in
-[fsdp_config.yaml](fsdp_config.yaml) with the number of GPUs on your machine. Then run:
+[fsdp_config.yaml](./fsdp_config.yaml) with the number of GPUs on your machine. Then run:
 
 ```bash run_recipe_fsdp.sh```
 
-For more information on setting up FSDP configs, see the [FSDP Configuration README](../integrations/huggingface-transformers/finetuning/configure_fsdp.md)
+For more information on setting up FSDP configs, see the [FSDP Configuration README](../../integrations/huggingface-transformers/finetuning/configure_fsdp.md)
 
 ### Compression
 
