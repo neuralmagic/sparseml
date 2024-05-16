@@ -1,8 +1,10 @@
 import torch
+
 from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 
+
 # define a sparseml recipe for GPTQ W8A8 quantization
-recipe="""
+recipe = """
 test_stage:
     quant_modifiers:
         vLLMQuantizationModifier:
@@ -21,10 +23,12 @@ test_stage:
             sequential_update: false
 """
 
-# by setting the device_map to auto, we can spread the model evenly across all available GPUs
+# setting device_map to auto to spread the model evenly across all available GPUs
 # load the model in as bfloat16 to save on memory and compute
 model_stub = "zoo:llama2-7b-ultrachat200k_llama2_pretrain-base"
-model = SparseAutoModelForCausalLM.from_pretrained(model_stub, torch_dtype=torch.bfloat16, device_map="auto")
+model = SparseAutoModelForCausalLM.from_pretrained(
+    model_stub, torch_dtype=torch.bfloat16, device_map="auto"
+)
 
 # uses SparseML's built-in preprocessing for ultra chat
 dataset = "ultrachat-200k"
@@ -48,5 +52,5 @@ oneshot(
     max_seq_length=max_seq_length,
     pad_to_max_length=pad_to_max_length,
     num_calibration_samples=num_calibration_samples,
-    save_compressed=True
+    save_compressed=True,
 )

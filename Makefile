@@ -1,7 +1,7 @@
 .PHONY: build docs test
 
 BUILDDIR := $(PWD)
-CHECKDIRS := integrations src tests utils status setup.py
+CHECKDIRS := integrations src tests utils status examples setup.py
 CHECKGLOBS := 'integrations/**/*.py' 'src/**/*.py' 'tests/**/*.py' 'utils/**/*.py' 'status/**/*.py' setup.py
 DOCDIR := docs
 MDCHECKGLOBS := 'docs/**/*.md' 'docs/**/*.rst' 'integrations/**/*.md'
