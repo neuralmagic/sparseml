@@ -31,7 +31,7 @@ CONFIGS_DIRECTORY = "tests/sparseml/transformers/finetune/finetune_custom"
 GPU_CONFIGS_DIRECTORY = "tests/sparseml/transformers/finetune/finetune_custom/gpu"
 
 
-class TestFinetuneCustomDataset(unittest.TestCase):
+class TestFinetuneNoRecipeCustomDataset(unittest.TestCase):
     def _test_finetune_wout_recipe_custom_dataset(self):
         from sparseml.transformers import train
 
@@ -126,7 +126,7 @@ class TestFinetuneCustomDataset(unittest.TestCase):
 @requires_torch
 @pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
-class TestOneshotCustomDatasetSmall(TestFinetuneCustomDataset):
+class TestOneshotCustomDatasetSmall(TestFinetuneNoRecipeCustomDataset):
     model = None  # "Xenova/llama2.c-stories15M"
     file_extension = None  # ["json", "csv"]
 
@@ -144,7 +144,7 @@ class TestOneshotCustomDatasetSmall(TestFinetuneCustomDataset):
 @requires_gpu
 @pytest.mark.integration
 @parameterized_class(parse_params(GPU_CONFIGS_DIRECTORY))
-class TestOneshotCustomDatasetGPU(TestFinetuneCustomDataset):
+class TestOneshotCustomDatasetGPU(TestFinetuneNoRecipeCustomDataset):
     model = None
     file_extension = None
 
