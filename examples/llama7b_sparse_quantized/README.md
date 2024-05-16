@@ -32,16 +32,6 @@ will save a checkpoint of the model after each stage.
 
 ```python examples/llama7b_sparse_quantized/llama7b_sparse_w4a16.py```
 
-### Running with FSDP (Experimental)
-
-This pathway can also be run in sharded mode across multiple GPUs using Pytorch FSDP. To
-launch the FSDP version of the example script, update the `num_processes` field in
-[fsdp_config.yaml](./fsdp_config.yaml) with the number of GPUs on your machine. Then run:
-
-```bash run_recipe_fsdp.sh```
-
-For more information on setting up FSDP configs, see the [FSDP Configuration README](../../integrations/huggingface-transformers/finetuning/configure_fsdp.md)
-
 ### Compression
 
 The resulting model will be uncompressed. To save a final compressed copy of the model 
