@@ -1,19 +1,35 @@
-import shutil
-import unittest
-import os
-import pytest
-import tempfile
-import json
-from io import StringIO
+# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import csv
+import json
+import os
+import shutil
+import tempfile
+import unittest
+from io import StringIO
+from pathlib import Path
+
+import pytest
 
 from parameterized import parameterized_class
 from tests.testing_utils import parse_params, requires_gpu, requires_torch
-from pathlib import Path
 
 
 CONFIGS_DIRECTORY = "tests/sparseml/transformers/finetune/finetune_custom"
 GPU_CONFIGS_DIRECTORY = "tests/sparseml/transformers/finetune/finetune_custom/gpu"
+
 
 class TestFinetuneCustomDataset(unittest.TestCase):
     def _test_finetune_wout_recipe_custom_dataset(self):
@@ -45,8 +61,9 @@ class TestFinetuneCustomDataset(unittest.TestCase):
             preprocessing_func=preprocessing_func,
         )
 
-
-    def _create_mock_custom_dataset_folder_structure(self, tmp_dir_data, file_extension):
+    def _create_mock_custom_dataset_folder_structure(
+        self, tmp_dir_data, file_extension
+    ):
         train_path = os.path.join(tmp_dir_data, "train")
         test_path = os.path.join(tmp_dir_data, "test")
         validate_path = os.path.join(tmp_dir_data, "validate")
@@ -106,21 +123,24 @@ class TestFinetuneCustomDataset(unittest.TestCase):
         shutil.rmtree(self.output)
 
 
+@requires_torch
 @pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestOneshotCustomDatasetSmall(TestFinetuneCustomDataset):
-    model = None # "Xenova/llama2.c-stories15M"
-    file_extension = None # ["json", "csv"]
-  
+    model = None  # "Xenova/llama2.c-stories15M"
+    file_extension = None  # ["json", "csv"]
+
     def setUp(self):
-        import torch 
-        
+        import torch
+
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.output = "./oneshot_output"
-    
+
     def test_oneshot_then_finetune_small(self):
         self._test_finetune_wout_recipe_custom_dataset()
 
+
+@requires_torch
 @requires_gpu
 @pytest.mark.integration
 @parameterized_class(parse_params(GPU_CONFIGS_DIRECTORY))
@@ -131,13 +151,13 @@ class TestOneshotCustomDatasetGPU(TestFinetuneCustomDataset):
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM
 
-        self.device = "auto" 
+        self.device = "auto"
         self.output = "./oneshot_output"
 
         if "zoo:" in self.model:
             self.model = SparseAutoModelForCausalLM.from_pretrained(
                 self.model, device_map=self.device
             )
-    
+
     def test_oneshot_then_finetune_gpu(self):
         self._test_finetune_wout_recipe_custom_dataset()
