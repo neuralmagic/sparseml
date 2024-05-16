@@ -32,10 +32,6 @@ class TrainingArguments(HFTrainingArgs):
         arguments
     """
 
-    best_model_after_epoch: int = field(
-        default=None,
-        metadata={"help": "Epoch after which best model will be saved."},
-    )
     recipe: Optional[str] = field(
         default=None,
         metadata={
@@ -70,7 +66,7 @@ class TrainingArguments(HFTrainingArgs):
         metadata={"help": "Device to run oneshot calibration on"},
     )
     clear_sparse_session: Optional[bool] = field(
-        default=True,
+        default=False,
         metadata={"help": "Whether to clear SparseSession data between runs."},
     )
     save_safetensors: Optional[bool] = field(

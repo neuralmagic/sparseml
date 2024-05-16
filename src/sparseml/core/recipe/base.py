@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from sparseml.core.framework import Framework
 from sparseml.core.recipe.args import RecipeArgs
@@ -36,6 +36,8 @@ class RecipeBase(BaseModel, ABC):
         - create_modifier
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     @abstractmethod
     def calculate_start(self) -> int:
         raise NotImplementedError()
@@ -45,7 +47,7 @@ class RecipeBase(BaseModel, ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(self, args: RecipeArgs = None, shift: int = None):
+    def evaluate(self, args: Optional[RecipeArgs] = None, shift: Optional[int] = None):
         raise NotImplementedError()
 
     @abstractmethod

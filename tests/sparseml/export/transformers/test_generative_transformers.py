@@ -65,13 +65,13 @@ class TestEndToEndExport:
 
         shutil.rmtree(tmp_path)
 
-    def test_export_initialized_model_no_source_path(self, setup):
+    def test_export_initialized_model_no_source_path(self, tmp_path, stub, task):
         # export the transformer model, that is being passed to the
         # `export` API directly as an object
-        source_path, target_path, task = setup
+        target_path = tmp_path / "target"
         export(
-            model=SparseAutoModelForCausalLM.from_pretrained(source_path),
-            tokenizer=SparseAutoTokenizer.from_pretrained(source_path),
+            model=SparseAutoModelForCausalLM.from_pretrained(stub),
+            tokenizer=SparseAutoTokenizer.from_pretrained(stub),
             target_path=target_path,
             sequence_length=384,
             task=task,
@@ -90,6 +90,8 @@ class TestEndToEndExport:
         assert any(
             inp.name == "past_key_values.0.key" for inp in onnx_model.graph.input
         )
+
+        shutil.rmtree(tmp_path)
 
     def test_export_happy_path(self, setup):
         source_path, target_path, task = setup

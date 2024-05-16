@@ -235,13 +235,13 @@ def save_sparsification_info(framework: Any, path: Optional[str] = None):
         create_parent_dirs(path)
 
         with open(path, "w") as file:
-            file.write(info.json())
+            file.write(info.model_dump_json())
 
         _LOGGER.info(
             "saved sparsification info for framework %s in file at %s", framework, path
         ),
     else:
-        print(info.json(indent=4))
+        print(info.model_dump_json(indent=4))
         _LOGGER.info("printed out sparsification info for framework %s", framework)
 
 

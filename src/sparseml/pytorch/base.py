@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import functools
-import os
 from typing import Optional
 
 from sparseml.base import check_version
@@ -49,13 +48,11 @@ __all__ = [
 
 
 _TORCH_MIN_VERSION = "1.0.0"
-# set max to 2.2.99 to account for bugfix versions with 2.2
-_TORCH_MAX_VERSION = os.environ.get("MAX_TORCH", "2.2.99")
 
 
 def check_torch_install(
     min_version: Optional[str] = _TORCH_MIN_VERSION,
-    max_version: Optional[str] = _TORCH_MAX_VERSION,
+    max_version: Optional[str] = None,
     raise_on_error: bool = True,
 ) -> bool:
     """
@@ -121,7 +118,7 @@ def check_torchvision_install(
 
 def require_torch(
     min_version: Optional[str] = _TORCH_MIN_VERSION,
-    max_version: Optional[str] = _TORCH_MAX_VERSION,
+    max_version: Optional[str] = None,
 ):
     """
     Decorator function to require use of torch.

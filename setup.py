@@ -45,7 +45,7 @@ _deps = [
     "pandas>=0.25.0",
     "packaging>=20.0",
     "psutil>=5.0.0",
-    "pydantic>=1.8.2,<2.0.0",
+    "pydantic>=2.0.0,<2.8.0",
     "requests>=2.0.0",
     "scikit-learn>=0.24.2",
     "scipy<1.9.2,>=1.8; python_version <= '3.9'",
@@ -55,7 +55,6 @@ _deps = [
     "GPUtil>=1.4.0",
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
-    "clearml==1.14.4",
 ]
 _nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
 _deepsparse_deps = [
@@ -65,7 +64,7 @@ _deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _clip_deps = ["open_clip_torch==2.20.0"]
-supported_torch_version = "torch>=1.7.0,<2.3"
+supported_torch_version = "torch>=1.7.0"
 _pytorch_deps = [
     supported_torch_version,
     "gputils",
@@ -79,7 +78,7 @@ _pytorch_vision_deps = _pytorch_deps + [
     "opencv-python<=4.6.0.66",
 ]
 _transformers_deps = _pytorch_deps + [
-    "transformers<4.40",
+    "transformers<4.41",
     "datasets<2.19",
     "dvc",
     "scikit-learn",
@@ -88,6 +87,7 @@ _transformers_deps = _pytorch_deps + [
     "evaluate>=0.4.1",
     "accelerate>=0.20.3",
     "safetensors>=0.4.1",
+    "compressed-tensors",
 ]
 _llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
