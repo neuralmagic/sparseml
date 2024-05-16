@@ -87,7 +87,7 @@ _transformers_deps = _pytorch_deps + [
     "evaluate>=0.4.1",
     "accelerate>=0.20.3",
     "safetensors>=0.4.1",
-    "compressed-tensors",
+    "compressed-tensors" if is_release else "compressed-tensors-nightly",
 ]
 _llm_deps = _transformers_deps + ["sentencepiece"]
 _yolov5_deps = _pytorch_vision_deps + [
