@@ -1,4 +1,4 @@
 cadence: "weekly"
 test_type: "regression"
-model: "zoo:llama2-7b-llama2_pretrain-base"
+model: "zoo:llama2-7b-ultrachat200k_llama2_pretrain-base "
 file_extension: json

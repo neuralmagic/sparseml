@@ -47,13 +47,13 @@ class TestFinetuneNoRecipeCustomDataset(unittest.TestCase):
             return example
 
         concatenate_data = False
-        max_steps = 50
+
         train(
             model=self.model,
             dataset=self.file_extension,
             output_dir=self.output,
             recipe=None,
-            max_steps=max_steps,
+            max_steps=self.max_steps,
             concatenate_data=concatenate_data,
             oneshot_device=self.device,
             text_column="text",
@@ -129,6 +129,7 @@ class TestFinetuneNoRecipeCustomDataset(unittest.TestCase):
 class TestOneshotCustomDatasetSmall(TestFinetuneNoRecipeCustomDataset):
     model = None  # "Xenova/llama2.c-stories15M"
     file_extension = None  # ["json", "csv"]
+    max_steps = None
 
     def setUp(self):
         import torch
@@ -147,6 +148,7 @@ class TestOneshotCustomDatasetSmall(TestFinetuneNoRecipeCustomDataset):
 class TestOneshotCustomDatasetGPU(TestFinetuneNoRecipeCustomDataset):
     model = None
     file_extension = None
+    max_steps = None
 
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM

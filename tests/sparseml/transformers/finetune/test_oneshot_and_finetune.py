@@ -40,7 +40,7 @@ class TestOneshotAndFinetune(unittest.TestCase):
             run_stages=True,
             output_dir=self.output,
             recipe=self.recipe,
-            max_steps=50,
+            max_steps=self.max_steps,
             concatenate_data=True,
             splits=splits,
             oneshot_device=self.device,
@@ -58,6 +58,7 @@ class TestOneshotAndFinetuneSmall(TestOneshotAndFinetune):
     dataset = None
     recipe = None
     dataset_config_name = None
+    max_steps = None
 
     def setUp(self):
         import torch
@@ -78,6 +79,7 @@ class TestOneshotAndFinetuneGPU(TestOneshotAndFinetune):
     dataset = None
     recipe = None
     dataset_config_name = None
+    max_steps = None
 
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM

@@ -1,6 +1,5 @@
 cadence: "weekly"
 test_type: "regression"
-model: "zoo:llama2-7b-llama2_pretrain-base"
-dataset: wikitext
-dataset_config_name: "wikitext-2-raw-v1"
+model: "zoo:llama2-7b-ultrachat200k_llama2_pretrain-base "
+dataset: ultrachat200k
 recipe: "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
