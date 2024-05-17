@@ -1,6 +1,6 @@
 import torch
 
-from sparseml.transformers import SparseAutoModelForCausalLM, compress
+from sparseml.transformers import SparseAutoModelForCausalLM, apply
 
 
 # define a recipe to handle sparsity, finetuning and quantization
@@ -16,7 +16,7 @@ model = SparseAutoModelForCausalLM.from_pretrained(
 dataset = "ultrachat-200k"
 
 # save location of quantized model
-output_dir = "output_llama7b_2:4_w4a16_channel_compressed"
+output_dir = "output_llama7b_2:4_w4a16_channel"
 
 # set dataset config parameters
 splits = {"calibration": "train_gen[:5%]", "train": "train_gen"}
@@ -35,7 +35,7 @@ warmup_ratio = 0.1
 
 # this will run the recipe stage by stage:
 # oneshot sparsification -> finetuning -> oneshot quantization
-compress(
+apply(
     model=model,
     dataset=dataset,
     recipe=recipe,

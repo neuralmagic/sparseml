@@ -1,8 +1,8 @@
 # Creating a Sparse Quantized Llama7b Model
 
 The example in this folder runs in multiple stages to create a Llama 7b model with 
-a 2:4 sparsity pattern and W4A16 quantization. The model is calibrated and trained with 
-the Ultra Chat 200k dataset.
+a 2:4 sparsity pattern and W4A16 post training quantization (PTW). The model is 
+calibrated and trained with the Ultra Chat 200k dataset.
 
 ## Recipe Summary
 
@@ -27,7 +27,7 @@ channelwise.
 
 ## How to Run
 
-We can run the entire staged recipe with one call to SparseML's `compress` pathway. This 
+We can run the entire staged recipe with one call to SparseML's `apply` pathway. This 
 will save a checkpoint of the model after each stage.
 
 ```python examples/llama7b_sparse_quantized/llama7b_sparse_w4a16.py```
