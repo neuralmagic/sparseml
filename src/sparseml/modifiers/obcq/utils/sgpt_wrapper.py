@@ -199,14 +199,17 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                                 zero_point[:, 0],
                                 quant_scheme.weights,
                             )
-                        else:  # strategy == QuantizationStrategy.CHANNEL
+                        else:  # strategy == QuantizationStrategy.GROUP
                             # TODO: for grouped quantization its always 3d but the last
                             # dim is always 1. Can we just make it 2d instead and avoid?
                             scale = scale[:, :, 0]
                             zero_point = zero_point[:, :, 0]
 
                             # get the group index for the current column
-                            input_dim_group = i // quant_scheme.weights.group_size
+                            column_idx = i1 + i
+                            input_dim_group = (
+                                column_idx // quant_scheme.weights.group_size
+                            )
 
                             # Since we're only applying quantization to a slice, this
                             # ends up being a channelwise application
