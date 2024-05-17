@@ -2,7 +2,7 @@
 
 The example in this folder runs in multiple stages to create a Llama 7b model with 
 a 2:4 sparsity pattern and W4A16 quantization. The model is calibrated and trained with 
-the Ultra Chat 200k dataset.
+the ultrachat200k dataset.
 
 ## Recipe Summary
 
