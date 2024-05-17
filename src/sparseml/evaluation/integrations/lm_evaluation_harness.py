@@ -32,14 +32,13 @@ except ImportError as import_error:
 try:
     # This needs to be imported after lm_eval to ensure right transformers
     # version is installed for SparseML
-    from sparseml.transformers.utils.sparse_config import SparseAutoConfig
-    from sparseml.transformers.utils.sparse_model import SparseAutoModelForCausalLM
-    from sparseml.transformers.utils.sparse_tokenizer import SparseAutoTokenizer
+    from sparseml.transformers import SparseAutoTokenizer
+    from sparseml.transformers.sparsification.sparse_config import SparseAutoConfig
+    from sparseml.transformers.sparsification.sparse_model import (
+        SparseAutoModelForCausalLM,
+    )
 except ImportError as import_error:
-    raise ImportError(
-        "Install sparseml supported dependencies for lm-eval integration by running "
-        "`pip uninstall transformers && pip install sparseml[transformers,torch]`"
-    ) from import_error
+    raise import_error
 
 __all__ = ["lm_eval_harness", "SparseMLLM"]
 _LOGGER = logging.getLogger(__name__)
@@ -131,7 +130,7 @@ class SparseMLLM(HFLM):
         }
 
         model = SparseAutoModelForCausalLM.from_pretrained(
-            pretrained, **relevant_kwargs
+            pretrained, torch_dtype="auto", **relevant_kwargs
         )
         self._model = model
 
