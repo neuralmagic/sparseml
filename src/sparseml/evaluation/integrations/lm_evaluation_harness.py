@@ -130,7 +130,7 @@ class SparseMLLM(HFLM):
         }
 
         model = SparseAutoModelForCausalLM.from_pretrained(
-            pretrained, torch_dtype="auto", **relevant_kwargs
+            pretrained, **relevant_kwargs
         )
         self._model = model
 
