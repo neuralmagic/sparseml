@@ -5,7 +5,7 @@ from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 
 # define a sparseml recipe for GPTQ W8A8 quantization
 recipe = """
-test_stage:
+quant_stage:
     quant_modifiers:
         vLLMQuantizationModifier:
             ignore: ["lm_head"]
