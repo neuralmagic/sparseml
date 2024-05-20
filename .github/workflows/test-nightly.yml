@@ -5,10 +5,10 @@ on:
       - '*'
 jobs:
   test-nightly-tests:
-    runs-on: k8s-mle-gpu-38-vcpu-168GB-ram-2-v100-32G
+    runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48
     env:
       CADENCE: "nightly"
-      SPARSEZOO_TEST_MODE: "true"
+      SPARSEZOO_TEST_MODE: "true"ß
       CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
       CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
       CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
