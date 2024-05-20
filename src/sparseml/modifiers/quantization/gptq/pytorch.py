@@ -44,12 +44,25 @@ class GPTQModifierPyTorch(GPTQModifier):
                 - LayerCompressor.post_compress()
                 - LayerCompressor.revert_layer_wrappers()
     | Sample yaml:
-    |   test_stage:
-    |       obcq_modifiers:
-    |           GPTQModifier:
-    |               sequential_update: True
-    |               dampening_frac: 0.001
-    |               block_size: 128
+    | test_stage:
+    |    obcq_modifiers:
+    |      GPTQModifier:
+    |          sequential_update: True
+    |          dampening_frac: 0.001
+    |          block_size: 128
+    |          config_groups:
+    |            group_0:
+    |                targets:
+    |                  - "Linear"
+    |                input_activations: null
+    |                output_activations: null
+    |                weights:
+    |                    num_bits: 8
+    |                    type: "int"
+    |                    symmetric: true
+    |                    strategy: "tensor"
+    |                    group_size: 128
+
 
     :param model: Pytorch model to perform GPTQ on, in place.
     """
@@ -59,7 +72,7 @@ class GPTQModifierPyTorch(GPTQModifier):
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
-        Initialize and run the OBCQ algorithm on the current state
+        Initialize and run the GPTQ algorithm on the current state
 
         :param state: session state storing input model and calibration data
         """
