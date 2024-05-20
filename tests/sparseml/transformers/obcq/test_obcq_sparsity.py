@@ -115,6 +115,7 @@ class TestSparsitiesGPU(unittest.TestCase):
             precision="bfloat16",
             bf16=True,
         )
+        
 
         model = get_session_model()
 
