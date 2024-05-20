@@ -77,6 +77,8 @@ class TestOBCQCompletion(unittest.TestCase):
             pad_to_max_length=False,
             output_dir=self.output,
             clear_sparse_session=False,
+            precision="bfloat16",
+            bf16=True,
         )
 
         first_tiny_model = get_session_model()
@@ -155,7 +157,7 @@ class TestOBCQCompletionGPU(TestOBCQCompletion):
         if "zoo:" in self.model:
             self.model_name = self.model
             self.model = SparseAutoModelForCausalLM.from_pretrained(
-                self.model, device_map=self.device
+                self.model, device_map=self.device, torch_dtype=torch.bfloat16
             )
 
     def test_oneshot_completion_gpu(self):

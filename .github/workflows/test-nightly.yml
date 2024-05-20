@@ -1,8 +1,7 @@
 name: Run Nightly Tests
 on:
-  push:
-    branches:
-      - '*'
+  schedule:
+    - cron: '0 8 * * 0'
 jobs:
   test-nightly-tests:
     runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48G
