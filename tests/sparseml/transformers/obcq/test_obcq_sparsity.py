@@ -68,6 +68,8 @@ class TestSparsities(unittest.TestCase):
         assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
 
     def tearDown(self):
+        import torch
+
         shutil.rmtree(self.output)
         torch.cuda.empty_cache()
 
