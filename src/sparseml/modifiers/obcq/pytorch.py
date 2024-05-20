@@ -56,9 +56,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
     |               mask_structure: "2:4"
     |               sequential_update: True
     |               dampening_frac: 0.001
-    |               targets: __ALL__
     |               block_size: 128
-    |               quantize: False
 
     :param model: Pytorch model to perform OBCQ on, in-place
     """
@@ -74,12 +72,10 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         """
         if not self.initialized_structure_:
             self.on_initialize_structure(state, **kwargs)
-        if self.quantization_modifier_:
-            self.quantization_modifier_.initialize(state, **kwargs)
-        if not self.quantize and self.sparsity == 0.0:
+
+        if self.sparsity == 0.0:
             raise ValueError(
-                "To use the SparseGPTModifier, target sparsity must be > 0.0 or "
-                "quantization must be enabled."
+                "To use the SparseGPTModifier, target sparsity must be > 0.0"
             )
 
         modifiable_model = state.model
@@ -178,13 +174,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def on_finalize(self, state: "State", **kwargs) -> bool:
         """
-        disable the quantization observers used by the OBCQ algorithm
-
         :param state: session state storing input model and calibration data
+        :return: True if the finalization was successful
         """
-        if self.quantization_modifier_:
-            self.quantization_modifier_.finalize(state, **kwargs)
-
         return super(SparseGPTModifierPyTorch, self).on_finalize(state, **kwargs)
 
     def _pruning_arguments(self, sparsity):
@@ -200,6 +192,7 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
             "prunem": self.prunem_,
             "blocksize": self.block_size,
             "percdamp": self.dampening_frac,
+            "preserve_sparsity_mask": self.preserve_sparsity_mask,
         }
 
     def _compression_class(self):
