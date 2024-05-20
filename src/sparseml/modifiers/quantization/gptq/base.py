@@ -66,8 +66,7 @@ class GPTQModifier(Modifier):
         not specified] Epoch to disable updates to the module
         quantization observers. At this point, quantized weights and zero points will
         not be updated. Leave None to not disable observers during QAT. Default is None
-    :param num_calibration_steps: [Used, if a quantization modifier is not specified]
-        Number of steps to run post training calibration for.
+    :param num_calibration_steps: Number of steps to run post training calibration for.
         When None, the entire calibration_dataloader is used
     """
 
