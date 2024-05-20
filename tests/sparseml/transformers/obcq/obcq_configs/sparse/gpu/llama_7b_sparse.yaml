@@ -1,4 +1,4 @@
-cadence: "weekly"
+cadence: "nightly"
 test_type: "regression"
 model: "zoo:llama2-7b-llama2_pretrain-base"
 dataset: open_platypus
