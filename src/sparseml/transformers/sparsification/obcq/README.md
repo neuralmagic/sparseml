@@ -214,10 +214,15 @@ test_stage:
       sparsity: 0.5
       block_size: 128
       sequential_update: true
-      quantize: true
       percdamp: 0.01
       mask_structure: "0:0"
       targets: ["re:model.layers.\\d*$"]
+    GPTQModifier:
+      block_size: 128
+      sequential_update: False
+      percdamp: 0.01
+      targets: ["re:model.layers.\\d+$"]
+    
 ```
 ## <a name="adapt"> How to Adapt a Recipe for a New Model</a>
 You can modify the above recipe to perform one-shot quantization on other models, for example [Mistral](https://huggingface.co/docs/transformers/main/model_doc/mistral). 
@@ -260,10 +265,14 @@ test_stage:
       sparsity: 0.5
       block_size: 128
       sequential_update: true
-      quantize: true
       percdamp: 0.01
       mask_structure: "0:0"
       targets: ["re:model.layers.\\d*$"]
+    GPTQModifier:
+      block_size: 128
+      sequential_update: False
+      percdamp: 0.01
+      targets: ["re:model.layers.\\d+$"]
 ```
 
 Save the recipe to a file named `recipe.yaml`. 
