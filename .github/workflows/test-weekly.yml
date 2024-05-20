@@ -6,10 +6,25 @@ on:
 
 jobs:
   run-weekly-tests:
-    runs-on: k8s-eng-gpu-64G-v100-32G # Should have multiple gpus enabled
+    runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48G
     env:
       CADENCE: "weekly"
+      SPARSEZOO_TEST_MODE: "true"
+      CLEARML_WEB_HOST: ${{ secrets.CLEARML_WEB_HOST }}
+      CLEARML_API_HOST: ${{ secrets.CLEARML_API_HOST }}
+      CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+      CLEARML_FILES_HOST:  ${{ secrets.CLEARML_FILES_HOST }}
+      CLEARML_API_SECRET_KEY:  ${{ secrets.CLEARML_API_SECRET_KEY }}
     steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: "neuralmagic/compressed-tensors"
+          path: "compressed-tensors"
+          ref: ${{needs.test-setup.outputs.branch}}
+      - name: "⚙️ Install compressed-tensors dependencies"
+        run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
+      - name: "Clean compressed-tensors directory"
+        run: rm -r compressed-tensors/
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -17,6 +32,6 @@ jobs:
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
       - name: Run integration tests 
-        run:
-          pytest tests -m integeration
-      
+        run: |
+          export CADENCE="weekly"
+          pytest tests/sparseml/transformers -m integration
