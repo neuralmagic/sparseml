@@ -106,7 +106,7 @@ class TestSparsitiesGPU(unittest.TestCase):
             oneshot_device=self.device,
             recipe=self.recipe,
             max_seq_length=128,
-            num_calibration_samples=32,
+            num_calibration_samples=64,
             pad_to_max_length=False,
             clear_sparse_session=False,
             output_dir=self.output,
