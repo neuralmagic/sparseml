@@ -148,6 +148,7 @@ class TestOBCQCompletionGPU(TestOBCQCompletion):
 
     def setUp(self):
         from sparseml.transformers import SparseAutoModelForCausalLM
+        import torch
 
         self.model_name = None
         self.output = "./oneshot_output"
