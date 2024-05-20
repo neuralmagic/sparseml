@@ -17,6 +17,7 @@ import shutil
 import tempfile
 import unittest
 
+import pytest
 import torch
 from torch.utils.data import DataLoader
 from transformers import DefaultDataCollator
@@ -40,6 +41,7 @@ CONFIGS_DIRECTORY = "tests/sparseml/transformers/compression/configs"
 
 @requires_torch
 @requires_gpu
+@pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestQuantizationMatches(unittest.TestCase):
     old_recipe = None
