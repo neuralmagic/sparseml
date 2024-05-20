@@ -98,7 +98,6 @@ def parse_params(
         cadence = os.environ.get("CADENCE", "commit")
         expected_cadence = config.get("cadence")
 
-
         if not isinstance(expected_cadence, list):
             expected_cadence = [expected_cadence]
         if cadence in expected_cadence:
