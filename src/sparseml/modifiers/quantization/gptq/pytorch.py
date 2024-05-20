@@ -63,6 +63,7 @@ class GPTQModifierPyTorch(GPTQModifier):
     |                    strategy: "tensor"
     |                    group_size: 128
 
+
     :param model: Pytorch model to perform GPTQ on, in place.
     """
 

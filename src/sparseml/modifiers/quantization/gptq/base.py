@@ -79,6 +79,7 @@ class GPTQModifier(Modifier):
     ignore: List[str] = Field(default_factory=list)
     disable_quantization_observer_epoch: Optional[float] = None
     num_calibration_steps: Optional[int] = None
+    compressible_layers_: Optional[List] = None
     quantization_modifier_: Any = None
 
     def on_initialize_structure(self, state: State, **kwargs):
@@ -158,6 +159,7 @@ class GPTQModifier(Modifier):
         vllm_quant_config = {"vLLMQuantizationModifier": quant_args}
         self._build_quant_modifier_from_dict(vllm_quant_config, framework)
 
+        
     def compressible_layers(self) -> Dict:
         """
         Retrieves the modules corresponding to a list of
