@@ -5,7 +5,7 @@ on:
       - '*'
 jobs:
   test-nightly-tests:
-    runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48
+    runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48G
     env:
       CADENCE: "nightly"
       SPARSEZOO_TEST_MODE: "true"
