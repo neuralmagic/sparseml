@@ -69,6 +69,7 @@ class TestSparsities(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.output)
+        torch.cuda.empty_cache()
 
 
 @requires_gpu
@@ -103,7 +104,7 @@ class TestSparsitiesGPU(unittest.TestCase):
             oneshot_device=self.device,
             recipe=self.recipe,
             max_seq_length=128,
-            num_calibration_samples=64,
+            num_calibration_samples=32,
             pad_to_max_length=False,
             clear_sparse_session=False,
             output_dir=self.output,
