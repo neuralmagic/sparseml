@@ -25,9 +25,8 @@ test_stage:
                     input_activations: null
                     output_activations: null
                     targets: ["Embedding"]
-        SparseGPTModifier:
-            sparsity: 0.0
+        GPTQModifier:
             block_size: 128
             sequential_update: False
-            quantize: True
+            percdamp: 0.01
             targets: ["re:model.layers.\\d+$"]
