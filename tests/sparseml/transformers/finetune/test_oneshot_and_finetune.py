@@ -33,7 +33,7 @@ class TestOneshotAndFinetune(unittest.TestCase):
 
         splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
         if self.dataset == "ultrachat-200k":
-            splits = {"train": "train_sft[:50%]", "calibration": "train_sft[50%:60%]"}
+            splits = {"train": "train_gen[:50%]", "calibration": "train_gen[50%:60%]"}
 
         apply(
             model=self.model,
@@ -42,7 +42,7 @@ class TestOneshotAndFinetune(unittest.TestCase):
             output_dir=self.output,
             recipe=self.recipe,
             num_train_epochs=self.num_train_epochs,
-            concatenate_data=True,
+            concatenate_data=self.concat_txt,
             splits=splits,
             oneshot_device=self.device,
             precision="bfloat16",
@@ -51,6 +51,8 @@ class TestOneshotAndFinetune(unittest.TestCase):
         )
 
     def tearDown(self):
+        # TODO: we get really nice stats from finetune that we should log
+        # stored in results.json
         shutil.rmtree(self.output)
 
 
@@ -63,6 +65,7 @@ class TestOneshotAndFinetuneSmall(TestOneshotAndFinetune):
     recipe = None
     dataset_config_name = None
     num_train_epochs = None
+    concat_txt = None
 
     def setUp(self):
         import torch
@@ -84,6 +87,7 @@ class TestOneshotAndFinetuneGPU(TestOneshotAndFinetune):
     recipe = None
     dataset_config_name = None
     num_train_epochs = None
+    concat_txt = None
 
     def setUp(self):
         import torch

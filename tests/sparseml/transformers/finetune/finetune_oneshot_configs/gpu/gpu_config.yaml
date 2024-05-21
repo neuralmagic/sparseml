@@ -4,3 +4,4 @@ model: "zoo:llama2-7b-ultrachat200k_llama2_pretrain-base"
 dataset: "ultrachat-200k"
 recipe: "tests/sparseml/transformers/finetune/test_alternate_recipe.yaml"
 num_train_epochs: 1
+concat_txt: False
