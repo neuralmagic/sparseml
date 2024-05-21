@@ -36,5 +36,11 @@ jobs:
       - name: Run finetune tests
         if: always()
         run: |
-          pytest tests/sparseml/transformers/finetune -m integration
+          pytest tests/sparseml/transformers/finetune --skiplist test_oneshot_then_finetune -m integration
+      - name: Set env
+        run: echo "CUDA_VISIBLE_DEVICES=0" >> $GITHUB_ENV
+      - name: Run finetune test
+        if: always()
+        run: |
+          pytest tests/sparseml/transformers/finetune/test_oneshot_then_finetune.py
       
