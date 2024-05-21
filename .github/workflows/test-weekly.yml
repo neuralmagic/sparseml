@@ -1,8 +1,7 @@
 name: Run Weekly tests
 on:
-  push:
-    branches:
-      - '*'
+  schedule:
+    - cron: '0 8 * * 0'
 
 
 jobs:
@@ -32,7 +31,11 @@ jobs:
           fetch-depth: 1
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
-      - name: Run integration tests 
+      - name: Run oneshot tests
         run: |
           export CADENCE="weekly"
-          pytest tests/sparseml/transformers -m integration
+          pytest tests/sparseml/transformers/obcq -m integration
+      - name: Run finetune tests
+        run: |
+          export CADENCE="weekly"
+          pytest tests/sparseml/transformers/finetune -m integration

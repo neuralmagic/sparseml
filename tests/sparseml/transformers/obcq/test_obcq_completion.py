@@ -147,8 +147,9 @@ class TestOBCQCompletionGPU(TestOBCQCompletion):
     perplexity = None
 
     def setUp(self):
-        from sparseml.transformers import SparseAutoModelForCausalLM
         import torch
+
+        from sparseml.transformers import SparseAutoModelForCausalLM
 
         self.model_name = None
         self.output = "./oneshot_output"

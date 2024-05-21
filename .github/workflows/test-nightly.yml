@@ -2,6 +2,9 @@ name: Run Nightly Tests
 on:
   schedule:
     - cron: '0 8 * * 0'
+  push:
+    branches:
+      - '*'
 jobs:
   test-nightly-tests:
     runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48G
@@ -29,8 +32,12 @@ jobs:
           fetch-depth: 1
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
-      - name: Run integration tests 
+      - name: Run oneshot tests
         run: |
           export CADENCE="nightly"
-          pytest tests/sparseml/transformers -m integration
+          pytest tests/sparseml/transformers/obcq -m integration
+      - name: Run finetune tests
+        run: |
+          export CADENCE="nightly"
+          pytest tests/sparseml/transformers/finetune -m integration
       
