@@ -20,7 +20,6 @@ from parameterized import parameterized
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
-from sparseml.modifiers.quantization import QuantizationModifier
 from sparseml.modifiers.quantization.gptq.pytorch import GPTQModifierPyTorch
 from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
 from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
@@ -66,9 +65,7 @@ class TestSuccessfulLayerwiseRecipe(unittest.TestCase):
     def test_successful_layerwise_recipe(self):
         sparsities = [0.5, 0.2]
         targets = ["seq.fc1", "seq.fc2"]
-        kwargs = dict(
-            sparsity=sparsities, block_size=128, targets=targets
-        )
+        kwargs = dict(sparsity=sparsities, block_size=128, targets=targets)
         modifier = SparseGPTModifierPyTorch(**kwargs)
         modifier.compressible_layers_ = {"seq.fc1": None, "seq.fc2": None}
         modifier.model = ModifiableModel(framework=Framework.pytorch, model=LinearNet())
@@ -97,7 +94,9 @@ class TestCreateDefaultQuantModifier(unittest.TestCase):
         assert modifier.quantize
         assert isinstance(modifier.quantization_modifier_, vLLMQuantizationModifier)
         default_config_group_name = "config_group_0"
-        should_be_default_quant_scheme = modifier.quantization_modifier_.config_groups[default_config_group_name]
+        should_be_default_quant_scheme = modifier.quantization_modifier_.config_groups[
+            default_config_group_name
+        ]
         self.assertEqual(should_be_default_quant_scheme.input_activations.num_bits, 8)
         assert not should_be_default_quant_scheme.input_activations.symmetric
         self.assertEqual(should_be_default_quant_scheme.weights.num_bits, 8)
@@ -129,7 +128,7 @@ class TestSetQuantIfModifierAlreadyExists(unittest.TestCase):
         kwargs = dict(block_size=128)
         modifier = GPTQModifierPyTorch(**kwargs)
         assert not modifier.quantization_modifier_
-        
+
         modifier.on_initialize_structure(testing_harness.get_state())
         # since quantization modifier is already applied, quantization must be set in
         # GPTQ
@@ -140,21 +139,23 @@ class TestSetQuantInGPTQ(unittest.TestCase):
     def setUp(self):
         setup_modifier_factory()
         self.quant_kwargs = {
-            "config_groups": {"config_group_0": {
-                "targets": ["Linear"],
-                "input_activations": {
-                    "num_bits": 8,
-                    "symmetric": False,
-                    "strategy": "tensor",
-                    "kwargs": {},
-                },
-                "weights": {
-                    "num_bits": 4,
-                    "symmetric": True,
-                    "strategy": "channel",
-                    "kwargs": {},
-                },
-            }}
+            "config_groups": {
+                "config_group_0": {
+                    "targets": ["Linear"],
+                    "input_activations": {
+                        "num_bits": 8,
+                        "symmetric": False,
+                        "strategy": "tensor",
+                        "kwargs": {},
+                    },
+                    "weights": {
+                        "num_bits": 4,
+                        "symmetric": True,
+                        "strategy": "channel",
+                        "kwargs": {},
+                    },
+                }
+            }
         }
         self.quant_config = {"vLLMQuantizationModifier": self.quant_kwargs}
 
@@ -170,12 +171,15 @@ class TestSetQuantInGPTQ(unittest.TestCase):
         self.assertIsInstance(modifier.quantization_modifier_, vLLMQuantizationModifier)
 
         dict_scheme = dict(modifier.quantization_modifier_.config_groups)
-        self._check_config(dict(dict_scheme["config_group_0"].weights), self.quant_kwargs["config_groups"]["config_group_0"]["weights"])
+        self._check_config(
+            dict(dict_scheme["config_group_0"].weights),
+            self.quant_kwargs["config_groups"]["config_group_0"]["weights"],
+        )
         self._check_config(
             dict(dict_scheme["config_group_0"].input_activations),
             self.quant_kwargs["config_groups"]["config_group_0"]["input_activations"],
         )
-    
+
     def _check_config(self, actual, expected):
         self.assertEqual(actual["num_bits"], expected["num_bits"])
         self.assertEqual(actual["symmetric"], expected["symmetric"])
