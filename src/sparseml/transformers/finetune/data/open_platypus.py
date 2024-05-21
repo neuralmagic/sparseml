@@ -56,7 +56,7 @@ class OpenPlatypusDataset(TextGenerationDataset):
 
         # helper fn for restructuring each dataset entry using the alpaca template
         def restructure_fn(sample):
-            if "input" in sample:
+            if "input" in sample and sample["input"] != "":
                 sample["text"] = self.ALPACA_TEMPLATE["prompt_input"].format(
                     instruction=sample["instruction"], input=sample["input"]
                 )
