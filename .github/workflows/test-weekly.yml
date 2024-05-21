@@ -32,9 +32,8 @@ jobs:
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
       - name: Run oneshot tests
         run: |
-          export CADENCE="weekly"
           pytest tests/sparseml/transformers/obcq -m integration
       - name: Run finetune tests
+        if: always()
         run: |
-          export CADENCE="weekly"
           pytest tests/sparseml/transformers/finetune -m integration
