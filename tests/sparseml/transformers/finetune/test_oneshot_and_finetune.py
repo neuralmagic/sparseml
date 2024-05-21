@@ -32,18 +32,22 @@ class TestOneshotAndFinetune(unittest.TestCase):
         from sparseml.transformers import apply
 
         splits = {"train": "train[:50%]", "calibration": "train[50%:60%]"}
+        if self.dataset == "ultrachat-200k":
+            splits = {"train": "train_sft[:50%]", "calibration": "train_sft[50%:60%]"}
 
         apply(
             model=self.model,
             dataset=self.dataset,
-            dataset_config_name=self.dataset_config_name,
             run_stages=True,
             output_dir=self.output,
             recipe=self.recipe,
-            max_steps=self.max_steps,
+            num_train_epochs=self.num_train_epochs,
             concatenate_data=True,
             splits=splits,
             oneshot_device=self.device,
+            precision="bfloat16",
+            bf16=True,
+            dataset_config_name=self.dataset_config_name,
         )
 
     def tearDown(self):
@@ -58,7 +62,7 @@ class TestOneshotAndFinetuneSmall(TestOneshotAndFinetune):
     dataset = None
     recipe = None
     dataset_config_name = None
-    max_steps = None
+    num_train_epochs = None
 
     def setUp(self):
         import torch
@@ -79,9 +83,11 @@ class TestOneshotAndFinetuneGPU(TestOneshotAndFinetune):
     dataset = None
     recipe = None
     dataset_config_name = None
-    max_steps = None
+    num_train_epochs = None
 
     def setUp(self):
+        import torch
+
         from sparseml.transformers import SparseAutoModelForCausalLM
 
         self.device = "auto"
@@ -89,7 +95,7 @@ class TestOneshotAndFinetuneGPU(TestOneshotAndFinetune):
 
         if "zoo:" in self.model:
             self.model = SparseAutoModelForCausalLM.from_pretrained(
-                self.model, device_map=self.device
+                self.model, device_map=self.device, torch_dtype=torch.bfloat16
             )
 
     def test_oneshot_then_finetune_gpu(self):

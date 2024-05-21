@@ -53,12 +53,14 @@ class TestFinetuneNoRecipeCustomDataset(unittest.TestCase):
             dataset=self.file_extension,
             output_dir=self.output,
             recipe=None,
-            max_steps=self.max_steps,
+            num_train_epochs=self.num_train_epochs,
             concatenate_data=concatenate_data,
             oneshot_device=self.device,
             text_column="text",
             dataset_path=dataset_path,
             preprocessing_func=preprocessing_func,
+            precision="bfloat16",
+            bf16=True,
         )
 
     def _create_mock_custom_dataset_folder_structure(
@@ -129,7 +131,7 @@ class TestFinetuneNoRecipeCustomDataset(unittest.TestCase):
 class TestOneshotCustomDatasetSmall(TestFinetuneNoRecipeCustomDataset):
     model = None  # "Xenova/llama2.c-stories15M"
     file_extension = None  # ["json", "csv"]
-    max_steps = None
+    num_train_epochs = None
 
     def setUp(self):
         import torch
@@ -148,9 +150,11 @@ class TestOneshotCustomDatasetSmall(TestFinetuneNoRecipeCustomDataset):
 class TestOneshotCustomDatasetGPU(TestFinetuneNoRecipeCustomDataset):
     model = None
     file_extension = None
-    max_steps = None
+    num_train_epochs = None
 
     def setUp(self):
+        import torch
+
         from sparseml.transformers import SparseAutoModelForCausalLM
 
         self.device = "auto"
@@ -158,7 +162,7 @@ class TestOneshotCustomDatasetGPU(TestFinetuneNoRecipeCustomDataset):
 
         if "zoo:" in self.model:
             self.model = SparseAutoModelForCausalLM.from_pretrained(
-                self.model, device_map=self.device
+                self.model, device_map=self.device, torch_dtype=torch.bfloat16
             )
 
     def test_oneshot_then_finetune_gpu(self):
