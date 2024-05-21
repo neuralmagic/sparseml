@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import shutil
 import unittest
 from pathlib import Path
@@ -26,6 +26,8 @@ from tests.testing_utils import requires_torch
 class TestOneshotThenFinetune(unittest.TestCase):
     def setUp(self):
         self.output = Path("./finetune_output")
+        # TODO: temprarily only expose one gpu; seems to have trouble with multiple
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     def test_oneshot_then_finetune(self):
         import torch
@@ -80,3 +82,4 @@ class TestOneshotThenFinetune(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.output)
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
