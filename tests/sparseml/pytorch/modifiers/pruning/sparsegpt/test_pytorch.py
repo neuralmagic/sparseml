@@ -21,7 +21,9 @@ from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
 from sparseml.modifiers.quantization import QuantizationModifier
+from sparseml.modifiers.quantization.gptq.pytorch import GPTQModifierPyTorch
 from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
+from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.testing_utils import requires_torch
@@ -45,7 +47,6 @@ class TestInvalidLayerwiseRecipesRaiseExceptions(unittest.TestCase):
         kwargs = dict(
             sparsity=sparsity,
             block_size=128,
-            quantize=False,
             targets=targets,
         )
         modifier = SparseGPTModifierPyTorch(**kwargs)
@@ -66,7 +67,7 @@ class TestSuccessfulLayerwiseRecipe(unittest.TestCase):
         sparsities = [0.5, 0.2]
         targets = ["seq.fc1", "seq.fc2"]
         kwargs = dict(
-            sparsity=sparsities, block_size=128, quantize=False, targets=targets
+            sparsity=sparsities, block_size=128, targets=targets
         )
         modifier = SparseGPTModifierPyTorch(**kwargs)
         modifier.compressible_layers_ = {"seq.fc1": None, "seq.fc2": None}
@@ -86,17 +87,17 @@ class TestCreateDefaultQuantModifier(unittest.TestCase):
         setup_modifier_factory()
 
     def test_create_default_quant_modifier(self):
-        kwargs = dict(sparsity=0.5, block_size=128, quantize=True)
+        kwargs = dict(block_size=128)
 
-        modifier = SparseGPTModifierPyTorch(**kwargs)
+        modifier = GPTQModifierPyTorch(**kwargs)
         assert modifier.quantization_modifier_ is None
 
         testing_harness = LifecyleTestingHarness(model=LinearNet())
         modifier.on_initialize_structure(testing_harness.get_state())
         assert modifier.quantize
-        assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
-
-        should_be_default_quant_scheme = modifier.quantization_modifier_.scheme
+        assert isinstance(modifier.quantization_modifier_, vLLMQuantizationModifier)
+        default_config_group_name = "config_group_0"
+        should_be_default_quant_scheme = modifier.quantization_modifier_.config_groups[default_config_group_name]
         self.assertEqual(should_be_default_quant_scheme.input_activations.num_bits, 8)
         assert not should_be_default_quant_scheme.input_activations.symmetric
         self.assertEqual(should_be_default_quant_scheme.weights.num_bits, 8)
@@ -125,24 +126,22 @@ class TestSetQuantIfModifierAlreadyExists(unittest.TestCase):
         modifier.initialize(testing_harness.get_state())
         assert testing_harness.get_state().model.qat_active()
 
-        kwargs = dict(sparsity=0.5, block_size=128, quantize=False)
-        modifier = SparseGPTModifierPyTorch(**kwargs)
-        assert not modifier.quantize
+        kwargs = dict(block_size=128)
+        modifier = GPTQModifierPyTorch(**kwargs)
+        assert not modifier.quantization_modifier_
+        
         modifier.on_initialize_structure(testing_harness.get_state())
-
-        # quantization modifier not owned by SparseGPT
-        assert modifier.quantization_modifier_ is None
-
         # since quantization modifier is already applied, quantization must be set in
-        # OBCQ
+        # GPTQ
         assert modifier.quantize
 
 
-class TestSetQuantInSparseGPT(unittest.TestCase):
+class TestSetQuantInGPTQ(unittest.TestCase):
     def setUp(self):
         setup_modifier_factory()
         self.quant_kwargs = {
-            "scheme": {
+            "config_groups": {"config_group_0": {
+                "targets": ["Linear"],
                 "input_activations": {
                     "num_bits": 8,
                     "symmetric": False,
@@ -155,26 +154,29 @@ class TestSetQuantInSparseGPT(unittest.TestCase):
                     "strategy": "channel",
                     "kwargs": {},
                 },
-            }
+            }}
         }
-        self.quant_config = {"QuantizationModifier": self.quant_kwargs}
+        self.quant_config = {"vLLMQuantizationModifier": self.quant_kwargs}
 
-    def test_set_quant_in_sparsegpt(self):
-        kwargs = dict(sparsity=0.5, block_size=128, quantize=self.quant_config)
+    def test_set_quant_in_gptq(self):
+        kwargs = dict(block_size=128, quantize=self.quant_config)
 
-        modifier = SparseGPTModifierPyTorch(**kwargs)
+        modifier = GPTQModifierPyTorch(**kwargs)
         assert modifier.quantization_modifier_ is None
 
         testing_harness = LifecyleTestingHarness(model=LinearNet())
         modifier.on_initialize_structure(testing_harness.get_state())
         assert modifier.quantize
-        self.assertIsInstance(modifier.quantization_modifier_, QuantizationModifier)
+        self.assertIsInstance(modifier.quantization_modifier_, vLLMQuantizationModifier)
 
-        dict_scheme = dict(modifier.quantization_modifier_.scheme)
-        self.assertEqual(
-            dict(dict_scheme["weights"]), self.quant_kwargs["scheme"]["weights"]
+        dict_scheme = dict(modifier.quantization_modifier_.config_groups)
+        self._check_config(dict(dict_scheme["config_group_0"].weights), self.quant_kwargs["config_groups"]["config_group_0"]["weights"])
+        self._check_config(
+            dict(dict_scheme["config_group_0"].input_activations),
+            self.quant_kwargs["config_groups"]["config_group_0"]["input_activations"],
         )
-        self.assertEqual(
-            dict(dict_scheme["input_activations"]),
-            self.quant_kwargs["scheme"]["input_activations"],
-        )
+    
+    def _check_config(self, actual, expected):
+        self.assertEqual(actual["num_bits"], expected["num_bits"])
+        self.assertEqual(actual["symmetric"], expected["symmetric"])
+        self.assertEqual(actual["strategy"], expected["strategy"])

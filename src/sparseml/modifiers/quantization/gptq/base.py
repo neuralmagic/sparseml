@@ -93,7 +93,7 @@ class GPTQModifier(Modifier):
         if isinstance(self.quantize, bool):
             if not self.quantize and quantization_already_active:
                 _LOGGER.warning(
-                    "SparseGPT quantization is set to False, but a "
+                    "GPTQ quantization is set to False, but a "
                     "quantization modifier is already active on the model "
                     "resetting quantize to True"
                 )
@@ -108,22 +108,22 @@ class GPTQModifier(Modifier):
         else:
             if not isinstance(self.quantize, Dict):
                 raise ValueError(
-                    "SparseGPTModifier.quantize accepts only a single "
+                    "GPTQModifier.quantize accepts only a single "
                     "quantization modifier or a boolean. Found "
                     f"type {type(self.quantize)}"
                 )
             if len(self.quantize) != 1:
                 raise ValueError(
-                    "SparseGPTModifier.quantize accepts only a single "
+                    "GPTQModifier.quantize accepts only a single "
                     "quantization modifier or a boolean. Found "
                     f"{len(self.quantize)} modifiers"
                 )
             if quantization_already_active:
                 _LOGGER.warning(
-                    "Attempting to initialize quantization for SparseGPT "
+                    "Attempting to initialize quantization for GPTQ "
                     "but a quantization modifier has already been applied. "
                     "The quantization configuration defined under the "
-                    "SparseGPT modifier will be ignored."
+                    "GPTQ modifier will be ignored."
                 )
                 self.quantize = True
                 return
@@ -155,6 +155,12 @@ class GPTQModifier(Modifier):
             for key in quantization_args_names
             if getattr(self, key, False)
         }
+        
+        if "config_groups" not in quant_args:
+            default_quant_scheme = QuantizationScheme.default_scheme(targets=self.targets)
+            quant_args["config_groups"] = {
+                "config_group_0": default_quant_scheme
+            }
         _LOGGER.info(f"Building quantization modifier with args: {quant_args}")
         vllm_quant_config = {"vLLMQuantizationModifier": quant_args}
         self._build_quant_modifier_from_dict(vllm_quant_config, framework)
