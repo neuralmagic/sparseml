@@ -155,17 +155,16 @@ class GPTQModifier(Modifier):
             for key in quantization_args_names
             if getattr(self, key, False)
         }
-        
+
         if "config_groups" not in quant_args:
-            default_quant_scheme = QuantizationScheme.default_scheme(targets=self.targets)
-            quant_args["config_groups"] = {
-                "config_group_0": default_quant_scheme
-            }
+            default_quant_scheme = QuantizationScheme.default_scheme(
+                targets=self.targets
+            )
+            quant_args["config_groups"] = {"config_group_0": default_quant_scheme}
         _LOGGER.info(f"Building quantization modifier with args: {quant_args}")
         vllm_quant_config = {"vLLMQuantizationModifier": quant_args}
         self._build_quant_modifier_from_dict(vllm_quant_config, framework)
 
-        
     def compressible_layers(self) -> Dict:
         """
         Retrieves the modules corresponding to a list of
