@@ -24,7 +24,8 @@ from tests.testing_utils import requires_torch
 @pytest.mark.integration
 @requires_torch
 @pytest.mark.skipif(
-    os.environ["CADENCE"] == "weekly" or os.environ["CADENCE"] == "nightly",
+    "CADENCE" in os.environ
+    and (os.environ["CADENCE"] == "weekly" or os.environ["CADENCE"] == "nightly"),
     reason="Don't run for weekly and nightly tests as those use multi gpu "
     "runners and this test fails when ngpu>1",
 )
