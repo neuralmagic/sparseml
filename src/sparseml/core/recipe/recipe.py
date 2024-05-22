@@ -410,8 +410,9 @@ class Recipe(RecipeBase):
 
         # fill out any default argument values
         args = {}
-        for key, val in values.items():
-            args[key] = val
+        if isinstance(values, dict):
+            for key, val in values.items():
+                args[key] = val
         formatted_values["args"] = RecipeArgs(args)
 
         return formatted_values
@@ -487,14 +488,15 @@ class Recipe(RecipeBase):
                 value["group"] = key
                 stages.append(value)
 
-        for key, value in list(values.items()):
-            if key.endswith("_stage"):
-                remove_keys.append(key)
-                value["group"] = key.rsplit("_stage", 1)[0]
-                stages.append(value)
+        if isinstance(values, dict):
+            for key, value in list(values.items()):
+                if key.endswith("_stage"):
+                    remove_keys.append(key)
+                    value["group"] = key.rsplit("_stage", 1)[0]
+                    stages.append(value)
 
-        for key in remove_keys:
-            del values[key]
+            for key in remove_keys:
+                del values[key]
 
         return stages
 
