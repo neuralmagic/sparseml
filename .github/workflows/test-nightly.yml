@@ -1,8 +1,8 @@
 name: Run Nightly Tests
 on:
-  push:
-    branches:
-      - '*'
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
 jobs:
   test-nightly-tests:
     runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48G
