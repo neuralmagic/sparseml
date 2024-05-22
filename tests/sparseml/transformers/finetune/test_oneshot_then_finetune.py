@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import shutil
 import unittest
 from pathlib import Path
@@ -22,10 +23,14 @@ from tests.testing_utils import requires_torch
 
 @pytest.mark.integration
 @requires_torch
+@pytest.mark.skipif(
+    os.environ["CADENCE"] == "weekly" or os.environ["CADENCE"] == "nightly",
+    reason="Don't run for weekly and nightly tests as those use multi gpu "
+    "runners and this test fails when ngpu>1",
+)
 class TestOneshotThenFinetune(unittest.TestCase):
     def setUp(self):
         self.output = Path("./finetune_output")
-        # TODO: temprarily only expose one gpu; seems to have trouble with multiple
 
     def test_oneshot_then_finetune(self):
         import torch
