@@ -56,6 +56,7 @@ class SparseGPTModifier(WandaPruningModifier):
     sparsity: Union[float, List[float]] = 0.0
     dampening_frac: Optional[float] = 0.01
     quantization_modifier_: Any = None
+    preserve_sparsity_mask: bool = False
 
     def on_initialize_structure(self, state: State, **kwargs):
         """
