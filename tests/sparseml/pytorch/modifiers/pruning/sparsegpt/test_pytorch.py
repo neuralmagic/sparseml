@@ -98,7 +98,9 @@ class TestCreateDefaultQuantModifier(unittest.TestCase):
             default_config_group_name
         ]
         self.assertEqual(should_be_default_quant_scheme.input_activations.num_bits, 8)
-        assert not should_be_default_quant_scheme.input_activations.symmetric
+        # input activations are symmetric by default in vLLMQuantizationModifier
+        assert should_be_default_quant_scheme.input_activations.symmetric
+        
         self.assertEqual(should_be_default_quant_scheme.weights.num_bits, 8)
         assert should_be_default_quant_scheme.weights.symmetric
 
