@@ -22,9 +22,7 @@ test_stage:
                         strategy: "channel"
                     input_activations: null
                     output_activations: null
-        SparseGPTModifier:
-            sparsity: 0.0
+        GPTQModifier:
             block_size: 128
             sequential_update: False
-            quantize: True
             targets: ["model.layers.0", "model.layers.1", "model.layers.2"]

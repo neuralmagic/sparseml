@@ -15,5 +15,4 @@ test_stage:
         GPTQModifier:
             block_size: 128
             sequential_update: False
-            percdamp: 0.01
             targets: ["re:model.layers.\\d+$"]
