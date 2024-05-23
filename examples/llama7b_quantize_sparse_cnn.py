@@ -18,7 +18,7 @@ quant_stage:
             config_groups:
                 group_0:
                     weights:
-                        num_bits: 4
+                        num_bits: 8
                         type: "int"
                         symmetric: true
                         strategy: "channel"
@@ -34,13 +34,13 @@ model = SparseAutoModelForCausalLM.from_pretrained(
 tokenizer = SparseAutoTokenizer.from_pretrained(model_stub)
 
 # for quantization calibration, we will use a subset of the dataset that was used to
-# sparsity and finetune the model
+# sparsify and finetune the model
 dataset = load_dataset("abisee/cnn_dailymail", "1.0.0", split="train[:5%]")
 
 # set dataset config parameters
-max_seq_length = 1024
+max_seq_length = 4096
 pad_to_max_length = False
-num_calibration_samples = 512
+num_calibration_samples = 1024
 
 
 # preprocess the data into a single text entry, then tokenize the dataset
@@ -58,7 +58,7 @@ tokenized_dataset = dataset.map(
 )
 
 # save location of quantized model out
-output_dir = "/network/sadkins/llama7b_sparse_24_w4a16_channel_compressed"
+output_dir = "./llama7b_sparse_24_w4a16_channel_compressed"
 
 # apply quantization recipe to the model and save quantized output int4 packed format
 # the sparsity structure of the original model will be maintained
