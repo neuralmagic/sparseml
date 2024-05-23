@@ -15,28 +15,24 @@
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import numpy as np
 import torch
-from tqdm import tqdm
 
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
-from sparseml.modifiers.obcq.base import SparseGPTModifier
-from sparseml.modifiers.obcq.utils.sgpt_wrapper import SparseGptWrapper
+from sparseml.modifiers.quantization.gptq.base import GPTQModifier
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
-from sparseml.utils.pytorch.module import get_prunable_layers
+from src.sparseml.modifiers.quantization.gptq.utils.gptq_wrapper import GPTQWrapper
 
 
-__all__ = ["SparseGPTModifierPyTorch"]
+__all__ = ["GPTQModifierPyTorch"]
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class SparseGPTModifierPyTorch(SparseGPTModifier):
+class GPTQModifierPyTorch(GPTQModifier):
     """
-    Pytorch implementation of SparseGPT
-
+    Pytorch implementation of GPTQ
     Lifecycle:
         - on_initialize
             - initialize_compression()
@@ -47,18 +43,28 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
                 - LayerCompressor.compress()
                 - LayerCompressor.post_compress()
                 - LayerCompressor.revert_layer_wrappers()
-
     | Sample yaml:
-    |   test_stage:
-    |       obcq_modifiers:
-    |           SparseGPTModifier:
-    |               sparsity: 0.5
-    |               mask_structure: "2:4"
-    |               sequential_update: True
-    |               dampening_frac: 0.001
-    |               block_size: 128
+    | test_stage:
+    |    obcq_modifiers:
+    |      GPTQModifier:
+    |          sequential_update: True
+    |          dampening_frac: 0.001
+    |          block_size: 128
+    |          config_groups:
+    |            group_0:
+    |                targets:
+    |                  - "Linear"
+    |                input_activations: null
+    |                output_activations: null
+    |                weights:
+    |                    num_bits: 8
+    |                    type: "int"
+    |                    symmetric: true
+    |                    strategy: "tensor"
+    |                    group_size: 128
 
-    :param model: Pytorch model to perform OBCQ on, in-place
+
+    :param model: Pytorch model to perform GPTQ on, in place.
     """
 
     model: Optional[ModifiableModel] = None
@@ -66,17 +72,16 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def on_initialize(self, state: "State", **kwargs) -> bool:
         """
-        Initialize and run the OBCQ algorithm on the current state
+        Initialize and run the GPTQ algorithm on the current state
 
         :param state: session state storing input model and calibration data
         """
         if not self.initialized_structure_:
             self.on_initialize_structure(state, **kwargs)
-
-        if self.sparsity == 0.0:
-            raise ValueError(
-                "To use the SparseGPTModifier, target sparsity must be > 0.0"
-            )
+        if self.quantization_modifier_:
+            self.quantization_modifier_.initialize(state, **kwargs)
+        if not self.quantize:
+            raise ValueError("To use the GPTQModifier, quantization must be enabled.")
 
         modifiable_model = state.model
         calibration_dataloader = state.data.calib
@@ -98,25 +103,17 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None,
     ):
         """
-        Setup for WANDA, initializes the model, device,
+        Setup for GPTQ, initializes the model
         and other parameters, also initilializes the
         compressible layers of model, and sets the device
 
         :param model: model to initialize for compression
+        :param dataloader: calibration data for GPTQ
         """
         self.model = model
         self.compressible_layers_ = self.compressible_layers()
         self.model = self.model.model
         self.layer_compressors_ = []
-        self._infer_mask_block_size()
-
-        if self.sparsity_profile is not None and self.sparsity_profile.lower() == "owl":
-            _LOGGER.info(
-                "Inferring layer-wise sparsities from "
-                f"{len(dataloader)} calibration samples..."
-            )
-            self.sparsity = self._infer_layer_sparsity(dataloader)
-        self._validate_layerwise_sparsity()
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
@@ -139,9 +136,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         self, dataloader: Optional[Iterable[Tuple[List, Dict[str, Any]]]] = None
     ) -> Dict:
         """
-        Run Wanda on the loaded model, using dataloader as calibration data
+        Run GPTQ on the loaded model, using dataloader as calibration data
 
-        :param dataloader: calibration data for WANDA
+        :param dataloader: calibration data for GPTQ
         """
         class_name = self.__class__.__name__.replace("PyTorch", "")
         _LOGGER.info(
@@ -153,13 +150,9 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
         num_layers = len(self.compressible_layers_)
         for idx, layer_compressor in enumerate(self.layer_compressors_):
-            layer_sparsity = layer_compressor.args["sparsity"]
-            _LOGGER.info(
-                f"\n===== Compressing layer {idx+1}/{num_layers} "
-                f"to sparsity {layer_sparsity} ====="
-            )
+            _LOGGER.info(f"\n===== Compressing layer {idx+1}/{num_layers} " " =====")
 
-            # Prune/quantize using SparseGPT
+            # Prune/quantize using GPTQ
             if self.sequential_update:
                 # in sequential mode we run one forward pass for each module we
                 # want to compress, this will be really slow but allows compression in
@@ -174,12 +167,16 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
 
     def on_finalize(self, state: "State", **kwargs) -> bool:
         """
-        :param state: session state storing input model and calibration data
-        :return: True if the finalization was successful
-        """
-        return super(SparseGPTModifierPyTorch, self).on_finalize(state, **kwargs)
+        disable the quantization observers used by the OBCQ algorithm
 
-    def _pruning_arguments(self, sparsity):
+        :param state: session state storing input model and calibration data
+        """
+        if self.quantization_modifier_:
+            self.quantization_modifier_.finalize(state, **kwargs)
+
+        return super(GPTQModifierPyTorch, self).on_finalize(state, **kwargs)
+
+    def _pruning_arguments(self):
         """
         Gather the parameters needed for root module compression in a dict
 
@@ -187,109 +184,12 @@ class SparseGPTModifierPyTorch(SparseGPTModifier):
         :return: dict of params for pruning
         """
         return {
-            "sparsity": sparsity,
-            "prunen": self.prunen_,
-            "prunem": self.prunem_,
             "blocksize": self.block_size,
             "percdamp": self.dampening_frac,
-            "preserve_sparsity_mask": self.preserve_sparsity_mask,
         }
 
     def _compression_class(self):
         """
         :return: wrapper class used for root modules of this compression class
         """
-        return SparseGptWrapper
-
-    def _infer_mask_block_size(self):
-        """
-        Infer the mask block size from the mask structure.
-        Parses mask_structure of the form N:M where N, M are integers that
-        define a custom block shape; and sets prunen_ and prunem_ accordingly.
-
-        :post-condition: prunen_ and prunem_ are set
-        """
-        if self.mask_structure is None:
-            raise ValueError("mask_structure must be defined")
-
-        self.prunen_, self.prunem_ = list(map(int, self.mask_structure.split(":")))
-
-    def _infer_layer_sparsity(self, calibration_dataloader):
-        acts = _get_activations(self.model, calibration_dataloader)
-        sparsegpt_groups = {}
-        for name, layer in self.compressible_layers_.items():
-            prunable_layers = get_prunable_layers(layer)
-            z = [
-                m.weight.abs() * acts[f"{name}.{n}"].unsqueeze(0)
-                for n, m in prunable_layers.items()
-            ]
-            sparsegpt_groups[name] = torch.cat([item.flatten().cpu() for item in z])
-
-        acts = None
-        del acts
-        torch.cuda.empty_cache()
-
-        outlier_ratios = {}
-        for group in sparsegpt_groups:
-            threshold = torch.mean(sparsegpt_groups[group]) * self.owl_m
-            outlier_ratios[group] = (
-                100
-                * (sparsegpt_groups[group] > threshold).sum().item()
-                / sparsegpt_groups[group].numel()
-            )
-        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
-        for k in outlier_ratios:
-            outlier_ratios[k] = (outlier_ratios[k] - outlier_ratios_arr.min()) * (
-                1
-                / (outlier_ratios_arr.max() - outlier_ratios_arr.min())
-                * self.owl_lmbda
-                * 2
-            )
-        outlier_ratios_arr = np.array([outlier_ratios[k] for k in outlier_ratios])
-        sparsities = {
-            k: 1
-            - (
-                outlier_ratios[k]
-                - np.mean(outlier_ratios_arr)
-                + (1 - float(self.sparsity))
-            )
-            for k in outlier_ratios
-        }
-        _LOGGER.info(f"OWL sparsities for sp={self.sparsity} are:")
-        for k in sparsities:
-            _LOGGER.info(f"Sparsity for {k}: {sparsities[k]}")
-        return sparsities
-
-
-@torch.no_grad()
-def _get_activations(model, data_loader, nsamples=128):
-    import functools
-
-    model.eval()
-    acts = {}
-
-    def save_acts(module, input, name):
-        if isinstance(input, tuple):
-            input = input[0]
-        if name not in acts:
-            acts[name] = 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
-        else:
-            acts[name] += 1.0 / nsamples * input.detach().pow(2).sum(dim=(0, 1)).sqrt()
-
-    hooks = []
-    for name, mod in model.named_modules():
-        if isinstance(mod, torch.nn.Linear) and "lm_head" not in name:
-            hooks.append(
-                mod.register_forward_pre_hook(functools.partial(save_acts, name=name))
-            )
-    device = next(model.parameters()).device
-    for batch in tqdm(data_loader):
-        batch = {k: v.to(device) for k, v in batch.items()}
-        model(**batch)
-        batch = None
-    torch.cuda.empty_cache()
-
-    for h in hooks:
-        h.remove()
-
-    return acts
+        return GPTQWrapper

@@ -44,8 +44,18 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 - run_calibration_forward()
                 - LayerCompressor.compress()
                 - LayerCompressor.post_compress()
+                - LayerCompressor.revert_layer_wrappers()
         - on_finalize
-            - LayerCompressor.revert_layer_wrappers()
+
+    | Sample yaml:
+    |   test_stage:
+    |       wanda_modifiers:
+    |           WandaPruningModifier:
+    |               sparsity: 0.05
+    |               mask_structure: "2:4"
+    |               sequential_update: True
+    |               targets: __ALL__
+
 
     :param model: `ModifiableModel` to perform WANDA on, in-place
     """
@@ -141,7 +151,7 @@ class WandaPruningModifierPyTorch(WandaPruningModifier):
                 f"to sparsity {layer_sparsity} ====="
             )
 
-            # Prune/quantize using SparseGPT
+            # Prune/quantize using the layer compressor
             if self.sequential_update:
                 # in sequential mode we run one forward pass for each module we
                 # want to compress, this will be really slow but allows compression in
