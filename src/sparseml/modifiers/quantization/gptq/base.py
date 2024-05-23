@@ -17,7 +17,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field
 
-from compressed_tensors.quantization import QuantizationScheme
+from compressed_tensors.quantization import (
+    QuantizationConfig,
+    QuantizationScheme,
+    is_preset_scheme,
+)
 from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.model.base import ModifiableModel
@@ -71,7 +75,9 @@ class GPTQModifier(Modifier):
     :param scheme: [Used, if a quantization modifier is not specified], the quantization
         scheme to apply to the model, this is a dictionary that supports all keys from
         QuantizationScheme except targets, which will be set to the targets parameter
-        set at the modifier level.
+        set at the modifier level. Can also be set to a dictionary of the format
+        `preset_scheme_name: targets` for example: `W8A8: ['Linear']` for weight 8 bit
+        and activation 8 bit quantization on the Linear layers.
     """
 
     sequential_update: Optional[bool] = False
@@ -163,11 +169,18 @@ class GPTQModifier(Modifier):
 
         if self.scheme is not None:
             # takes precedence over config_groups
-            targets = self.targets or ["Linear"]
-            config_group = QuantizationScheme.model_validate(
-                {"targets": targets, **self.scheme}
-            )
-            quant_args["config_groups"] = {"config_group_0": config_group}
+
+            if any(is_preset_scheme(key) for key in self.scheme.keys()):
+                config_groups = QuantizationConfig(
+                    config_groups=self.scheme
+                ).config_groups
+                quant_args["config_groups"] = config_groups
+            else:
+                targets = self.targets or ["Linear"]
+                config_group = QuantizationScheme.model_validate(
+                    {"targets": targets, **self.scheme}
+                )
+                quant_args["config_groups"] = {"config_group_0": config_group}
 
         if "config_groups" not in quant_args:
             default_quant_scheme = QuantizationScheme.default_scheme(
