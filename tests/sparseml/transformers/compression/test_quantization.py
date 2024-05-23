@@ -44,6 +44,17 @@ CONFIGS_DIRECTORY = "tests/sparseml/transformers/compression/configs"
 @pytest.mark.integration
 @parameterized_class(parse_params(CONFIGS_DIRECTORY))
 class TestQuantizationMatches(unittest.TestCase):
+    """
+    Tests new compressed-tensors quantization format matches performance with the old
+    sparseml format. For setup, this class runs a full oneshot run with both an old and
+    new quantization recipe that should be equivalent. Then tests the following:
+        - quantization structure matches after oneshot
+        - quantized weights match
+        - decompressing the new model has the expected weights on reload
+        - no perplexity regression from the old quantization framework, asserts we are
+            no more than 2% on perplexity
+    """
+
     old_recipe = None
     new_recipe = None
     model_stub = None
@@ -76,13 +87,6 @@ class TestQuantizationMatches(unittest.TestCase):
             cls.dataset,
             os.path.join(cls.test_dir, cls.new_output),
         )
-
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.test_dir)
-        del cls.model_new
-        del cls.model_old
-        torch.cuda.empty_cache()
 
     @staticmethod
     def _run_oneshot(model, recipe, dataset, output_dir):
@@ -142,6 +146,25 @@ class TestQuantizationMatches(unittest.TestCase):
 
         return quant_info_weights, quant_info_inputs
 
+    def _get_dataloader(self, data_args, tokenizer):
+        dataset_manager = TextGenerationDataset.load_from_registry(
+            data_args.dataset,
+            data_args=data_args,
+            split="train",
+            tokenizer=tokenizer,
+        )
+        calib_dataset = dataset_manager.tokenize_and_process(
+            dataset_manager.get_raw_dataset()
+        )
+        data_loader = DataLoader(
+            calib_dataset,
+            batch_size=1,
+            collate_fn=DefaultDataCollator(),
+            sampler=torch.utils.data.RandomSampler(calib_dataset),
+        )
+
+        return data_loader
+
     def test_quantization_counts(self):
         old_quant_weights, old_quant_inputs = self._get_quant_info_old(self.model_old)
         new_quant_weights, new_quant_inputs = self._get_quant_info_new(self.model_new)
@@ -186,25 +209,6 @@ class TestQuantizationMatches(unittest.TestCase):
             assert torch.equal(o_scale.cpu(), n_scale.cpu())
             assert torch.equal(o_zp.cpu(), n_zp.cpu())
 
-    def _get_dataloader(self, data_args, tokenizer):
-        dataset_manager = TextGenerationDataset.load_from_registry(
-            data_args.dataset,
-            data_args=data_args,
-            split="train",
-            tokenizer=tokenizer,
-        )
-        calib_dataset = dataset_manager.tokenize_and_process(
-            dataset_manager.get_raw_dataset()
-        )
-        data_loader = DataLoader(
-            calib_dataset,
-            batch_size=1,
-            collate_fn=DefaultDataCollator(),
-            sampler=torch.utils.data.RandomSampler(calib_dataset),
-        )
-
-        return data_loader
-
     @torch.no_grad()
     def test_perplexity(self):
         tokenizer = SparseAutoTokenizer.from_pretrained(self.model_stub)
@@ -234,3 +238,10 @@ class TestQuantizationMatches(unittest.TestCase):
             total_ppl_old / total_non_nan
         )
         assert avg_ppl_ratio <= 1.02
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.test_dir)
+        del cls.model_new
+        del cls.model_old
+        torch.cuda.empty_cache()
