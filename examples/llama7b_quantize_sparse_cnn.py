@@ -38,9 +38,9 @@ tokenizer = SparseAutoTokenizer.from_pretrained(model_stub)
 dataset = load_dataset("abisee/cnn_dailymail", "1.0.0", split="train[:5%]")
 
 # set dataset config parameters
-max_seq_length = 512
+max_seq_length = 4096
 pad_to_max_length = False
-num_calibration_samples = 512
+num_calibration_samples = 1024
 
 
 # preprocess the data into a single text entry, then tokenize the dataset
