@@ -45,7 +45,7 @@ jobs:
     uses: ./.github/workflows/test-nightly.yml
 
   build-wheel-and-push:
-    needs: [set-outputs, test-nighly]
+    needs: [set-outputs, test-nightly]
     if: |
       (needs.set-outputs.outputs.dev == 'false') || 
       (needs.test-nightly.result == 'success' && needs.set-outputs.outputs.dev == 'true')
