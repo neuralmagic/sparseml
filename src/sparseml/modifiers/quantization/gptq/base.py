@@ -181,13 +181,12 @@ class GPTQModifier(Modifier):
                     {"targets": targets, **self.scheme}
                 )
                 quant_args["config_groups"] = {"config_group_0": config_group}
-            
+
             targets = self.targets or ["Linear"]
             config_group = QuantizationScheme.model_validate(
                 {"targets": targets, **self.scheme}
             )
             quant_args["config_groups"] = {"config_group_0": config_group}
-
 
         if "config_groups" not in quant_args:
             default_quant_scheme = QuantizationScheme.default_scheme(
