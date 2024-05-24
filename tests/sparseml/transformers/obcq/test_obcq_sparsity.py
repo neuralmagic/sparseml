@@ -68,7 +68,10 @@ class TestSparsities(unittest.TestCase):
         assert math.isclose(layer_2_dense.item(), 0.0, rel_tol=1e-4)
 
     def tearDown(self):
+        import torch
+
         shutil.rmtree(self.output)
+        torch.cuda.empty_cache()
 
 
 @requires_gpu
@@ -83,13 +86,15 @@ class TestSparsitiesGPU(unittest.TestCase):
     device = None
 
     def setUp(self):
+        import torch
+
         from sparseml.transformers import SparseAutoModelForCausalLM
 
         self.output = "./oneshot_output"
 
         if "zoo:" in self.model:
             self.model = SparseAutoModelForCausalLM.from_pretrained(
-                self.model, device_map=self.device
+                self.model, device_map=self.device, torch_dtype=torch.bfloat16
             )
 
     def test_sparsities_gpu(self):
@@ -107,6 +112,8 @@ class TestSparsitiesGPU(unittest.TestCase):
             pad_to_max_length=False,
             clear_sparse_session=False,
             output_dir=self.output,
+            precision="bfloat16",
+            bf16=True,
         )
 
         model = get_session_model()
