@@ -24,8 +24,8 @@ concurrency:
 env:
   PRODUCTION: ${{ github.event_name == 'schedule' || github.event_name == 'release'}}
   RELEASE: 'false'
-  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
-
+  #DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
+  DEV: 'true'
 jobs:
   set-outputs:
     runs-on: ubuntu-latest
@@ -40,11 +40,15 @@ jobs:
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
 
   test-nightly:
+    needs: set-outputs
+    if: ${{ needs.set-outputs.outputs.dev  == 'true'}}
     uses: ./.github/workflows/test-nightly.yml
-    secrets: inherit
 
   build-wheel-and-push:
-    needs: set-outputs
+    needs: [set-outputs, test-nighly]
+    if: |
+      (needs.set-outputs.outputs.dev == 'false') || 
+      (needs.test-nightly.result == 'success' && needs.set-outputs.outputs.dev == 'true')
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
