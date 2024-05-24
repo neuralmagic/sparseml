@@ -48,5 +48,5 @@ model.save_pretrained(compressed_output_dir, save_compressed=True)
 
 ### Custom Quantization
 The current repo supports multiple quantization techniques configured using a recipe. Supported strategies are `tensor`, `group` and `channel`. 
-The above recipe (`2:4_w4a16_recipe.yaml`) uses channel-wise quantization specified by `            strategy: "channel"` in its config group. 
+The above recipe (`2:4_w4a16_recipe.yaml`) uses channel-wise quantization specified by `strategy: "channel"` in its config group. 
 To use quantize per tensor, change strategy from `channel` to `tensor`. To use group size quantization, change from `channel` to `group` and specify its value, say 128, by including `group_size: 128`. Group size quantization example is shown in `2:4_w4a16_group-128_recipe.yaml`
