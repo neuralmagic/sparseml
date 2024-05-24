@@ -20,9 +20,9 @@ import torch
 from sparseml.core.model import ModifiableModel
 from sparseml.core.state import State
 from sparseml.modifiers.quantization.gptq.base import GPTQModifier
+from sparseml.modifiers.quantization.gptq.utils.gptq_wrapper import GPTQWrapper
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
-from src.sparseml.modifiers.quantization.gptq.utils.gptq_wrapper import GPTQWrapper
 
 
 __all__ = ["GPTQModifierPyTorch"]
@@ -117,13 +117,7 @@ class GPTQModifierPyTorch(GPTQModifier):
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
             _LOGGER.info(f"Preparing {name} for compression")
-            if isinstance(self.sparsity, Dict):
-                layer_sparsity = self.sparsity[name]
-            elif isinstance(self.sparsity, List):
-                layer_sparsity = self.sparsity[idx]
-            else:  # float
-                layer_sparsity = self.sparsity
-            args = self._pruning_arguments(layer_sparsity)
+            args = self._pruning_arguments()
             comp_cls = self._compression_class()
             compressor = LayerCompressor(comp_cls, self.model, layer, idx, name, args)
             if not self.sequential_update:
