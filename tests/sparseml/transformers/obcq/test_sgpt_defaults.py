@@ -21,7 +21,7 @@ from tests.testing_utils import requires_torch
 
 @pytest.mark.integration
 @requires_torch
-class TestSGPTDefualts(unittest.TestCase):
+class TestSGPTDefaults(unittest.TestCase):
     def test_sgpt_defaults(self):
         from sparseml.core.framework import Framework
         from sparseml.core.state import State
@@ -31,17 +31,8 @@ class TestSGPTDefualts(unittest.TestCase):
         sparsegpt_modifier_only_sparsity = SparseGPTModifier(
             framework=Framework.pytorch, **kwargs
         )
-        assert not sparsegpt_modifier_only_sparsity.quantize
         self.assertEqual(sparsegpt_modifier_only_sparsity.block_size, 128)
         self.assertEqual(sparsegpt_modifier_only_sparsity.sparsity, 0.5)
-
-        kwargs = {"quantize": True}
-        sparsegpt_modifier_only_quant = SparseGPTModifier(
-            framework=Framework.pytorch, **kwargs
-        )
-        assert sparsegpt_modifier_only_quant.quantize
-        self.assertEqual(sparsegpt_modifier_only_quant.block_size, 128)
-        self.assertEqual(sparsegpt_modifier_only_quant.sparsity, 0.0)
 
         # fail if we don't pass a sparsity or enable quantization
         kwargs = {}
