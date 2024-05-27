@@ -61,7 +61,7 @@ def perplexity_eval(
     dataset_config_name = _infer_dataset_config_name(datasets)
     task = "text-generation"
     split = kwargs.pop("split", None)
-    model = SparseAutoModelForCausalLM.from_pretrained(model_path)
+    model = SparseAutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16, device_map="auto")
     tokenizer = SparseAutoTokenizer.from_pretrained(model_path)
 
     input_text = _load_perplexity_dataset(

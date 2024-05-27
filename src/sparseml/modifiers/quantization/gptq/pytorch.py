@@ -23,7 +23,7 @@ from sparseml.modifiers.quantization.gptq.base import GPTQModifier
 from sparseml.modifiers.quantization.gptq.utils.gptq_wrapper import GPTQWrapper
 from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
-
+from sparseml.utils.fsdp.context import fix_fsdp_module_name
 
 __all__ = ["GPTQModifierPyTorch"]
 
@@ -116,6 +116,7 @@ class GPTQModifierPyTorch(GPTQModifier):
         self.layer_compressors_ = []
 
         for idx, (name, layer) in enumerate(self.compressible_layers_.items()):
+            name = fix_fsdp_module_name(name)
             _LOGGER.info(f"Preparing {name} for compression")
             args = self._pruning_arguments()
             comp_cls = self._compression_class()
