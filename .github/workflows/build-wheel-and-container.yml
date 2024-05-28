@@ -23,7 +23,8 @@ concurrency:
 # if not dev or release, will create a nightly build; turning off release for now
 env:
   RELEASE: 'false'
-  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
+  #DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
+  DEV: 'false'
 
 jobs:
   set-outputs:
