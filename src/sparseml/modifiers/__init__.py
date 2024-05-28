@@ -18,5 +18,5 @@ from .distillation import *
 from .logarithmic_equalization import *
 from .obcq import *
 from .pruning import *
-from .quantization_legacy import *
+from .quantization import *
 from .smoothquant import *

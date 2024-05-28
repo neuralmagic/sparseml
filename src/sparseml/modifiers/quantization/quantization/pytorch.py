@@ -23,7 +23,7 @@ from compressed_tensors.quantization import (
     set_module_for_calibration,
 )
 from sparseml.core import Event, EventType, State
-from sparseml.modifiers.quantization.base import QuantizationModifier
+from sparseml.modifiers.quantization.quantization.base import QuantizationModifier
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
 

@@ -27,7 +27,9 @@ from sparseml.modifiers.quantization_legacy.modification.modification_objects im
     QuantizableBatchMatmul,
     QuantizableIdentity,
 )
-from sparseml.modifiers.quantization_legacy.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification.registry import (
+    ModificationRegistry,
+)
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.base import (
     check_transformers_version,

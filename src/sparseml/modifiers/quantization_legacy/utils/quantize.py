@@ -26,13 +26,17 @@ from sparseml.modifiers.quantization_legacy.utils.constants import (
     FUSED_MODULE_NAMES,
     NON_QUANTIZABLE_MODULE_NAMES,
 )
-from sparseml.modifiers.quantization_legacy.utils.fake_quant_wrapper import FakeQuantizeWrapper
+from sparseml.modifiers.quantization_legacy.utils.fake_quant_wrapper import (
+    FakeQuantizeWrapper,
+)
 from sparseml.modifiers.quantization_legacy.utils.helpers import (
     QATWrapper,
     configure_module_default_qconfigs,
     prepare_embeddings_qat,
 )
-from sparseml.modifiers.quantization_legacy.utils.quantization_scheme import QuantizationScheme
+from sparseml.modifiers.quantization_legacy.utils.quantization_scheme import (
+    QuantizationScheme,
+)
 from sparseml.pytorch.utils import get_layer
 from sparseml.utils.fsdp.context import fix_fsdp_module_name
 

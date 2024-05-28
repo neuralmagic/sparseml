@@ -20,9 +20,11 @@ from parameterized import parameterized
 from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
-from sparseml.modifiers.quantization_legacy.gptq.pytorch import GPTQModifierPyTorch
-from sparseml.modifiers.quantization_legacy.pytorch import LegacyQuantizationModifierPyTorch
-from sparseml.modifiers.quantization.base import QuantizationModifier
+from sparseml.modifiers.quantization.gptq.pytorch import GPTQModifierPyTorch
+from sparseml.modifiers.quantization.quantization.base import QuantizationModifier
+from sparseml.modifiers.quantization_legacy.pytorch import (
+    LegacyQuantizationModifierPyTorch,
+)
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.testing_utils import requires_torch
