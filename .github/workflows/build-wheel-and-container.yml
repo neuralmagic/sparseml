@@ -41,11 +41,11 @@ jobs:
 
   test-nightly:
     needs: set-outputs
+    runs-on: ubuntu-latest
     steps:
      - if: ${{ needs.set-outputs.outputs.dev  == 'false' && needs.set-outputs.outputs.release  == 'false'}}
        uses: ./.github/workflows/test-nightly.yml
      - if: ${{ needs.set-outputs.outputs.dev  == 'true'}}
-       runs-on: ubuntu-latest
        run: |
         echo "Skipping nightly tests"
 
