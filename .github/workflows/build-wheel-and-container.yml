@@ -43,11 +43,10 @@ jobs:
     needs: set-outputs
     if: ${{ needs.set-outputs.outputs.dev  == 'false' && needs.set-outputs.outputs.release  == 'false'}}
     uses: ./.github/workflows/test-nightly.yml
-    if: ${{ needs.set-output.outputs.dev == 'true'}}
-    run: exit 0
 
   build-wheel-and-push:
     needs: [set-outputs, test-nightly]
+    if: ${{ needs.set-outputs.outputs.dev == 'true' || needs.set-outputs.outputs.dev == 'false' &&  contains(needs.*.result, 'success')}}
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
