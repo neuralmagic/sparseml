@@ -44,7 +44,7 @@ jobs:
     uses: ./.github/workflows/test-nightly.yml
 
   build-wheel-and-push:
-    needs: [set-outputs, test-nightly]
+    needs: [set-outputs]
     if: ${{ always() && !failure() }}
     uses: ./.github/workflows/build-wheel.yml
     with:
