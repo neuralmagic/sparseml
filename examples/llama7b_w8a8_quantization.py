@@ -7,7 +7,8 @@ from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 recipe = """
 quant_stage:
     quant_modifiers:
-        vLLMQuantizationModifier:
+        GPTQModifier:
+            sequential_update: false
             ignore: ["lm_head"]
             config_groups:
                 group_0:
@@ -23,10 +24,6 @@ quant_stage:
                         dynamic: True
                         strategy: "token"
                     targets: ["Linear"]
-        SparseGPTModifier:
-            sparsity: 0.0
-            quantize: true
-            sequential_update: false
 """
 
 # setting device_map to auto to spread the model evenly across all available GPUs
@@ -40,7 +37,7 @@ model = SparseAutoModelForCausalLM.from_pretrained(
 dataset = "ultrachat-200k"
 
 # save location of quantized model out
-output_dir = "./output_llama7b_w8a8_channel_compressed"
+output_dir = "./output_llama7b_w8a8_channel_dynamic_compressed"
 
 # set dataset config parameters
 splits = {"calibration": "train_gen[:5%]"}

@@ -69,6 +69,10 @@ class ModuleSparsificationInfo:
         self.state_dict = state_dict
 
         if self.state_dict is not None:
+            # when analyzing an FSDP model, the state_dict does not differentiate
+            # between trainable and non-trainable parameters
+            # (e.g. it can contain buffers) this means that the
+            # self.trainable_parameters may be overestimated
             self.trainable_params = [param for _, param in state_dict.items()]
         else:
             self.trainable_params = list(

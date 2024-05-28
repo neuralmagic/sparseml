@@ -24,12 +24,12 @@ max_seq_length = 512
 num_calibration_samples = 512
 
 # set training parameters for finetuning
-num_train_epochs = 1
+num_train_epochs = 0.5
 logging_steps = 500
 save_steps = 5000
 gradient_checkpointing = True  # saves memory during training
 learning_rate = 0.0001
-bf16 = True  # using bfloat16 for training
+bf16 = False  # using full precision for training
 lr_scheduler_type = "cosine"
 warmup_ratio = 0.1
 
