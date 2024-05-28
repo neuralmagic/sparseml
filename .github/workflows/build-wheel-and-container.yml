@@ -23,7 +23,9 @@ concurrency:
 # if not dev or release, will create a nightly build; turning off release for not
 env:
   RELEASE: 'false'
-  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
+  # DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
+  DEV: 'false'
+  NIGHTLY: ${{ DEV == 'false' && RELEASE == 'false'}}
 jobs:
   set-outputs:
     runs-on: ubuntu-latest
@@ -36,17 +38,15 @@ jobs:
         run: |
           echo "dev=$DEV" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
+          echo "nightly=$NIGHTLY" >> $GITHUB_OUTPUT
 
   test-nightly:
     needs: set-outputs
-    if: ${{ needs.set-outputs.outputs.dev  == 'true'}}
+    if: ${{ needs.set-outputs.outputs.nightly  == 'true'}}
     uses: ./.github/workflows/test-nightly.yml
 
   build-wheel-and-push:
     needs: [set-outputs, test-nightly]
-    if: |
-      (needs.set-outputs.outputs.dev == 'false') || 
-      (needs.test-nightly.result == 'success' && needs.set-outputs.outputs.dev == 'true')
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
