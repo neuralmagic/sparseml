@@ -25,7 +25,7 @@ env:
   RELEASE: 'false'
   # DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   DEV: 'false'
-  NIGHTLY: ${{ env.DEV == 'false' && env.RELEASE == 'false'}}
+
 jobs:
   set-outputs:
     runs-on: ubuntu-latest
@@ -38,11 +38,10 @@ jobs:
         run: |
           echo "dev=$DEV" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
-          echo "nightly=$NIGHTLY" >> $GITHUB_OUTPUT
 
   test-nightly:
     needs: set-outputs
-    if: ${{ needs.set-outputs.outputs.nightly  == 'true'}}
+    if: ${{ needs.set-outputs.outputs.dev  == 'false' && needs.set-outputs.outputs.release  == 'false'}}
     uses: ./.github/workflows/test-nightly.yml
 
   build-wheel-and-push:
