@@ -45,7 +45,7 @@ jobs:
 
   build-wheel-and-push:
     needs: [set-outputs, test-nightly]
-    if: ${{ needs.set-outputs.outputs.dev == 'true' || needs.set-outputs.outputs.dev == 'false' &&  contains(needs.*.result, 'success')}}
+    if: ${{ always() && !cancelled() && needs.set-outputs.result == 'success' }}
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
