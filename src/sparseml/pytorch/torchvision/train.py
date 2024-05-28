@@ -779,9 +779,7 @@ def main(args):
             lr_scheduler.step()
 
         eval_metrics = evaluate(model, criterion, data_loader_test, device)
-        log_metrics(
-            args.transfer_dataset_test_split, eval_metrics, epoch, steps_per_epoch
-        )
+        log_metrics("Test", eval_metrics, epoch, steps_per_epoch)
 
         top1_acc = eval_metrics.acc1.global_avg
         if model_ema:
