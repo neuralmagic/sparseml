@@ -41,12 +41,15 @@ jobs:
 
   test-nightly:
     needs: set-outputs
-    if: ${{ needs.set-outputs.outputs.dev  == 'false' && needs.set-outputs.outputs.release  == 'false'}}
-    uses: ./.github/workflows/test-nightly.yml
+    steps:
+     - if: ${{ needs.set-outputs.outputs.dev  == 'false' && needs.set-outputs.outputs.release  == 'false'}}
+       uses: ./.github/workflows/test-nightly.yml
+     - if: ${{ needs.set-outputs.outputs.dev  == 'true'}}
+       run: |
+        echo "Skipping nightly tests"
 
   build-wheel-and-push:
     needs: [set-outputs, test-nightly]
-    if: ${{ always() && !failure() }}
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
@@ -60,7 +63,6 @@ jobs:
 
   test-wheel-and-publish:
     needs: [set-outputs, build-wheel-and-push]
-    if: ${{ always() && !failure() }}
     uses: ./.github/workflows/test-wheel-and-publish.yml
     with:
       build-label: ubuntu-20.04
@@ -72,7 +74,6 @@ jobs:
 
   build-container-and-push:
     needs: [test-wheel-and-publish, set-outputs]
-    if: ${{ always() && !failure() }}
     uses: ./.github/workflows/build-container.yml
     with:
       build-label: k8s-eng-gpu-16G-t4-32G
