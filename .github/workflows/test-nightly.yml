@@ -18,8 +18,6 @@ jobs:
           repository: "neuralmagic/compressed-tensors"
           path: "compressed-tensors"
           ref: ${{needs.test-setup.outputs.branch}}
-      - name: Fail
-        run: exit 0
       - name: "⚙️ Install compressed-tensors dependencies"
         run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
       - name: "Clean compressed-tensors directory"
