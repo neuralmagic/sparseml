@@ -61,17 +61,13 @@ def main_process_first_context():
 
 def fix_fsdp_module_name(name: str) -> str:
     """
-    Remove FSDP wrapper prefixes from a module name
+    Remove FSDP wrapper prefixes from a module name.
+    Accounts for scenario where FSDP_WRAPPER_NAME is
+    at the end of the name, as well as in the middle.
 
     :param name: name to strip
     :return: stripped name
     """
-    if FSDP_WRAPPER_NAME + "." in name:
-        # accounting for the scenario, where the FSDP_WRAPPER_NAME
-        # is not the last part of the name
-        return name.replace(FSDP_WRAPPER_NAME + ".", "")
-    elif "." + FSDP_WRAPPER_NAME in name:
-        # accounting for the scenario, where the FSDP_WRAPPER_NAME
-        # is the last part of the name
-        return name.replace("." + FSDP_WRAPPER_NAME, "")
-    return name
+    return name.replace(FSDP_WRAPPER_NAME + ".", "").replace(
+        "." + FSDP_WRAPPER_NAME, ""
+    )
