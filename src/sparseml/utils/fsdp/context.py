@@ -67,7 +67,7 @@ def fix_fsdp_module_name(name: str) -> str:
     :return: stripped name
     """
     if FSDP_WRAPPER_NAME + "." in name:
-        # accounting for the scenario, where the FSDP_WRAPPER_NAME 
+        # accounting for the scenario, where the FSDP_WRAPPER_NAME
         # is not the last part of the name
         return name.replace(FSDP_WRAPPER_NAME + ".", "")
     elif "." + FSDP_WRAPPER_NAME in name:

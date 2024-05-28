@@ -25,6 +25,7 @@ from sparseml.modifiers.utils.layer_compressor import LayerCompressor
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 from sparseml.utils.fsdp.context import fix_fsdp_module_name
 
+
 __all__ = ["GPTQModifierPyTorch"]
 
 _LOGGER = logging.getLogger(__name__)
