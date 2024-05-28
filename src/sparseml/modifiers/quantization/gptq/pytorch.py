@@ -176,7 +176,6 @@ class GPTQModifierPyTorch(GPTQModifier):
         """
         Gather the parameters needed for root module compression in a dict
 
-        :param sparsity: target sparsity
         :return: dict of params for pruning
         """
         return {
