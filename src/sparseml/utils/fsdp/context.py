@@ -30,7 +30,7 @@ __all__ = [
     "fix_fsdp_module_name",
 ]
 
-FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
+FSDP_WRAPPER_NAME = "_fsdp_wrapped_module"
 
 
 def summon_full_params_context(model, offload_to_cpu: bool = False):
@@ -66,4 +66,12 @@ def fix_fsdp_module_name(name: str) -> str:
     :param name: name to strip
     :return: stripped name
     """
-    return name.replace(FSDP_WRAPPER_NAME, "")
+    if FSDP_WRAPPER_NAME + "." in name:
+        # accounting for the scenario, where the FSDP_WRAPPER_NAME 
+        # is not the last part of the name
+        return name.replace(FSDP_WRAPPER_NAME + ".", "")
+    elif "." + FSDP_WRAPPER_NAME in name:
+        # accounting for the scenario, where the FSDP_WRAPPER_NAME
+        # is the last part of the name
+        return name.replace("." + FSDP_WRAPPER_NAME, "")
+    return name
