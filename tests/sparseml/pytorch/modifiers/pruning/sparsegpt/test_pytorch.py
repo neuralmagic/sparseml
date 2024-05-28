@@ -21,8 +21,8 @@ from sparseml.core.framework import Framework
 from sparseml.core.model import ModifiableModel
 from sparseml.modifiers.obcq.pytorch import SparseGPTModifierPyTorch
 from sparseml.modifiers.quantization.gptq.pytorch import GPTQModifierPyTorch
-from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
-from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
+from sparseml.modifiers.quantization.pytorch import LegacyQuantizationModifierPyTorch
+from sparseml.modifiers.quantization_vllm.base import QuantizationModifier
 from tests.sparseml.modifiers.conf import LifecyleTestingHarness, setup_modifier_factory
 from tests.sparseml.pytorch.helpers import LinearNet
 from tests.testing_utils import requires_torch
@@ -92,13 +92,13 @@ class TestCreateDefaultQuantModifier(unittest.TestCase):
         testing_harness = LifecyleTestingHarness(model=LinearNet())
         modifier.on_initialize_structure(testing_harness.get_state())
         assert modifier.quantize
-        assert isinstance(modifier.quantization_modifier_, vLLMQuantizationModifier)
+        assert isinstance(modifier.quantization_modifier_, QuantizationModifier)
         default_config_group_name = "config_group_0"
         should_be_default_quant_scheme = modifier.quantization_modifier_.config_groups[
             default_config_group_name
         ]
         self.assertEqual(should_be_default_quant_scheme.input_activations.num_bits, 8)
-        # input activations are symmetric by default in vLLMQuantizationModifier
+        # input activations are symmetric by default in QuantizationModifier
         assert should_be_default_quant_scheme.input_activations.symmetric
 
         self.assertEqual(should_be_default_quant_scheme.weights.num_bits, 8)
@@ -120,7 +120,7 @@ class TestSetQuantIfModifierAlreadyExists(unittest.TestCase):
             ),
         )
 
-        modifier = QuantizationModifierPyTorch(**kwargs)
+        modifier = LegacyQuantizationModifierPyTorch(**kwargs)
         testing_harness = LifecyleTestingHarness(model=model, start=-1)
 
         assert not testing_harness.get_state().model.qat_active()
@@ -159,7 +159,7 @@ class TestSetQuantInGPTQ(unittest.TestCase):
                 }
             }
         }
-        self.quant_config = {"vLLMQuantizationModifier": self.quant_kwargs}
+        self.quant_config = {"QuantizationModifier": self.quant_kwargs}
 
     def test_set_quant_in_gptq(self):
         kwargs = dict(block_size=128, quantize=self.quant_config)
@@ -170,7 +170,7 @@ class TestSetQuantInGPTQ(unittest.TestCase):
         testing_harness = LifecyleTestingHarness(model=LinearNet())
         modifier.on_initialize_structure(testing_harness.get_state())
         assert modifier.quantize
-        self.assertIsInstance(modifier.quantization_modifier_, vLLMQuantizationModifier)
+        self.assertIsInstance(modifier.quantization_modifier_, QuantizationModifier)
 
         dict_scheme = dict(modifier.quantization_modifier_.config_groups)
         self._check_config(

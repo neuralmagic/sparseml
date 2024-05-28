@@ -34,7 +34,7 @@ from sparsezoo import Model
 def save_recipe_for_text_classification(source_path):
     recipe = """test_stage:
              quant_modifiers:
-               QuantizationModifier:
+               LegacyQuantizationModifier:
                  post_oneshot_calibration: False
                  scheme_overrides:
                    Embedding:

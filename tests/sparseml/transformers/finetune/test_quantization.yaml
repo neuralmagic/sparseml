@@ -1,6 +1,6 @@
 test_stage:
   quant_modifiers:
-    QuantizationModifier:
+    LegacyQuantizationModifier:
       ignore:
         - LlamaRotaryEmbedding
         - LlamaRMSNorm

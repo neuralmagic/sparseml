@@ -19,7 +19,7 @@ import pytest
 from sparseml.core.event import Event
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.quantization import QuantizationModifier
+from sparseml.modifiers.quantization import LegacyQuantizationModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
 
 
@@ -31,14 +31,14 @@ class TestQuantizationRegistered(unittest.TestCase):
 
     def test_quantization_registered(self):
         quant_obj = ModifierFactory.create(
-            type_="QuantizationModifier",
+            type_="LegacyQuantizationModifier",
             framework=Framework.general,
             allow_experimental=False,
             allow_registered=True,
             **self.kwargs,
         )
 
-        self.assertIsInstance(quant_obj, QuantizationModifier)
+        self.assertIsInstance(quant_obj, LegacyQuantizationModifier)
 
 
 @pytest.mark.unit
@@ -52,7 +52,7 @@ class TestEndEpochs(unittest.TestCase):
 
     def test_end_epochs(self):
         disable_quant_epoch, freeze_bn_epoch = None, None
-        obj_modifier = QuantizationModifier(
+        obj_modifier = LegacyQuantizationModifier(
             start=self.start,
             scheme=self.scheme,
             disable_quantization_observer_epoch=disable_quant_epoch,
@@ -68,7 +68,7 @@ class TestEndEpochs(unittest.TestCase):
             assert not obj_modifier.check_should_freeze_bn_stats(event)
 
         disable_quant_epoch, freeze_bn_epoch = 3.5, 5.0
-        obj_modifier = QuantizationModifier(
+        obj_modifier = LegacyQuantizationModifier(
             start=self.start,
             scheme=self.scheme,
             disable_quantization_observer_epoch=disable_quant_epoch,

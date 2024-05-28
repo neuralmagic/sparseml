@@ -23,16 +23,16 @@ from compressed_tensors.quantization import (
     set_module_for_calibration,
 )
 from sparseml.core import Event, EventType, State
-from sparseml.modifiers.quantization_vllm.base import vLLMQuantizationModifier
+from sparseml.modifiers.quantization_vllm.base import QuantizationModifier
 from sparseml.modifiers.utils.pytorch_helpers import run_calibration_forward
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class vLLMQuantizationModifierPyTorch(vLLMQuantizationModifier):
+class QuantizationModifierPyTorch(QuantizationModifier):
     """
-    PyTorch specific implementation of vLLMQuantizationModifier
+    PyTorch specific implementation of QuantizationModifier
 
     Enables post training quantization (PTQ) and quantization aware training (QAT) for a
     given module or its submodules. After calibration (PTQ) or the start epoch (QAT),
