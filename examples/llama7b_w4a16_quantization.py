@@ -7,7 +7,8 @@ from sparseml.transformers import SparseAutoModelForCausalLM, oneshot
 recipe = """
 quant_stage:
     quant_modifiers:
-        vLLMQuantizationModifier:
+        GPTQModifier:
+            sequential_update: false
             ignore: ["lm_head"]
             config_groups:
                 group_0:
@@ -17,10 +18,6 @@ quant_stage:
                         symmetric: true
                         strategy: "channel"
                     targets: ["Linear"]
-        SparseGPTModifier:
-            sparsity: 0.0
-            quantize: true
-            sequential_update: false
 """
 
 # setting device_map to auto to spread the model evenly across all available GPUs
