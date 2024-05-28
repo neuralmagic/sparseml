@@ -59,7 +59,7 @@ jobs:
 
   test-wheel-and-publish:
     needs: [set-outputs, build-wheel-and-push]
-    if: ${{ always() && !cancelled() && needs.build-wheel-and-push.result == 'success' }}
+    if: ${{ always() && !cancelled() && contains(needs.*.result, 'success') }}
     uses: ./.github/workflows/test-wheel-and-publish.yml
     with:
       build-label: ubuntu-20.04
