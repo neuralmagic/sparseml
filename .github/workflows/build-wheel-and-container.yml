@@ -45,7 +45,7 @@ jobs:
 
   build-wheel-and-push:
     needs: [set-outputs, test-nightly]
-    if: ${{ always() && !cancelled() && needs.set-outputs.result == 'success' }}
+    if: ${{ always() && !cancelled() && contains(needs.*.result, 'success') }}
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
@@ -71,7 +71,7 @@ jobs:
 
   build-container-and-push:
     needs: [test-wheel-and-publish, set-outputs]
-    if: ${{ always() && !cancelled() && needs.test-wheel-and-publish.result == 'success' }}
+    if: ${{ always() && !cancelled() && contains(needs.*.result, 'success')}}
     uses: ./.github/workflows/build-container.yml
     with:
       build-label: k8s-eng-gpu-16G-t4-32G
