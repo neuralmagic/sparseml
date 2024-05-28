@@ -49,6 +49,7 @@ class TestQuantizationMatches(unittest.TestCase):
     dataset = "ultrachat-200k"
     output = "tiny_llama_out"
     max_seq_length = 512
+    weight_dtype = torch.bfloat16
     num_eval = 64
 
     @classmethod
@@ -56,7 +57,7 @@ class TestQuantizationMatches(unittest.TestCase):
         cls.test_dir = tempfile.mkdtemp()
 
         cls.model = SparseAutoModelForCausalLM.from_pretrained(
-            cls.model_stub, device_map="cuda:0"
+            cls.model_stub, torch_dtype=cls.weight_dtype, device_map="cuda:0"
         )
         cls._run_oneshot(
             cls.model,
@@ -99,6 +100,7 @@ class TestQuantizationMatches(unittest.TestCase):
                     quant_info_weights[name] = (
                         module.weight_scale,
                         module.weight_zero_point,
+                        module.weight,
                     )
 
                 if module.quantization_scheme.input_activations is not None:
@@ -113,24 +115,30 @@ class TestQuantizationMatches(unittest.TestCase):
 
     def test_quantization_reload(self):
         model_reloaded = SparseAutoModelForCausalLM.from_pretrained(
-            os.path.join(self.test_dir, self.output), device_map="cuda:0"
+            os.path.join(self.test_dir, self.output),
+            torch_dtype="auto",
+            device_map="cuda:0",
         )
 
         og_weights, og_inputs = self._get_quant_info(self.model)
         reloaded_weights, reloaded_inputs = self._get_quant_info(model_reloaded)
 
-        for name, (o_scale, o_zp) in og_weights.items():
-            n_scale, n_zp = reloaded_weights[name]
-            assert o_scale.dtype == n_scale.dtype
+        for name, (o_scale, o_zp, o_weight) in og_weights.items():
+            n_scale, n_zp, n_weight = reloaded_weights[name]
+            assert o_scale.dtype == n_scale.dtype == self.weight_dtype
             assert torch.equal(o_scale, n_scale)
-            assert o_zp.dtype == n_zp.dtype
+            assert o_zp.dtype == n_zp.dtype == self.weight_dtype
             assert torch.equal(o_zp, n_zp)
+
+            # we don't expect an exact match here because o_weight still has the
+            # original weight and n_weight has been fake_quantized
+            assert n_weight.dtype == o_weight.dtype == self.weight_dtype
 
         for name, (o_scale, o_zp) in og_inputs.items():
             n_scale, n_zp = reloaded_inputs[name]
-            assert o_scale.dtype == n_scale.dtype
+            assert o_scale.dtype == n_scale.dtype == self.weight_dtype
             assert torch.equal(o_scale, n_scale)
-            assert o_zp.dtype == n_zp.dtype
+            assert o_zp.dtype == n_zp.dtype == self.weight_dtype
             assert torch.equal(o_zp, n_zp)
 
     def _get_dataloader(self, data_args, tokenizer):
