@@ -8,7 +8,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 20 * * *'
 
 permissions:
   id-token: write
@@ -20,11 +20,10 @@ concurrency:
   cancel-in-progress: true
 
 # TODO: do we want to push to nightly everytime we push to main?
-# if not dev or release, will create a nightly build; turning off release for not
+# if not dev or release, will create a nightly build; turning off release for now
 env:
   RELEASE: 'false'
-  # DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
-  DEV: 'false'
+  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
 
 jobs:
   set-outputs:
@@ -68,7 +67,6 @@ jobs:
       release: ${{ needs.set-outputs.outputs.release  }}
     secrets: inherit
 
-  # TODO: add release container build steps once 
   build-container-and-push:
     needs: [test-wheel-and-publish, set-outputs]
     uses: ./.github/workflows/build-container.yml
