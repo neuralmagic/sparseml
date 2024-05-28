@@ -68,3 +68,11 @@ jobs:
       with:
         filename: ${{ inputs.whl }}
         dst: dist_s3
+
+    - name: Publish Nightly Wheel
+      if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
+      uses: neuralmagic/nm-actions/actions/publish-whl@main
+      with:
+        username: ${{ secrets.PYPI_PUBLIC_USER }}
+        password: ${{ secrets.PYPI_PUBLIC_AUTH }}
+        whl: ./$FILENAME

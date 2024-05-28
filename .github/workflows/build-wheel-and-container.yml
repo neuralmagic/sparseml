@@ -4,9 +4,6 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-  push: 
-    branches:
-      - main
   schedule:
     - cron: '0 20 * * *'
 
@@ -23,8 +20,7 @@ concurrency:
 # if not dev or release, will create a nightly build; turning off release for now
 env:
   RELEASE: 'false'
-  #DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
-  DEV: 'false'
+  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
 
 jobs:
   set-outputs:
