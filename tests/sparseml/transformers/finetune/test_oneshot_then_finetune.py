@@ -82,7 +82,6 @@ class TestOneshotThenFinetune(unittest.TestCase):
                 concatenate_data=concatenate_data,
                 splits=splits,
                 max_steps=max_steps,
-                oneshot_device=device,
             )
 
     def tearDown(self):
