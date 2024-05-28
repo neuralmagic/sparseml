@@ -6,7 +6,7 @@ on:
       - main
   push: 
     branches:
-      - '*'
+      - main
   schedule:
     - cron: '0 0 * * *'
 
@@ -22,10 +22,8 @@ concurrency:
 # TODO: do we want to push to nightly everytime we push to main?
 # if not dev or release, will create a nightly build; turning off release for not
 env:
-  PRODUCTION: ${{ github.event_name == 'schedule' || github.event_name == 'release'}}
   RELEASE: 'false'
-  #DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
-  DEV: 'true'
+  DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
 jobs:
   set-outputs:
     runs-on: ubuntu-latest
