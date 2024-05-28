@@ -1271,12 +1271,6 @@ def _deprecate_old_arguments(f):
     help="the central crop size used for validation",
 )
 @click.option(
-    "--resize-square",
-    is_flag=True,
-    default=False,
-    help="whether to resize images to a square",
-)
-@click.option(
     "--train-resize-size",
     default=[None, None],
     nargs=2,
