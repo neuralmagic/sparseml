@@ -45,6 +45,7 @@ jobs:
 
   build-wheel-and-push:
     needs: [set-outputs, test-nightly]
+    if: ${{ always() && !failure() }}
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
