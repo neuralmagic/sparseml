@@ -27,8 +27,8 @@ from transformers.models.distilbert.modeling_distilbert import (
     MultiHeadSelfAttention,
 )
 
-from sparseml.modifiers.quantization.modification.modification_objects import QATMatMul
-from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification.modification_objects import QATMatMul
+from sparseml.modifiers.quantization_legacy.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.base import (
     check_transformers_version,

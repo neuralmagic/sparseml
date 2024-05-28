@@ -21,7 +21,7 @@ from sparseml.core import State
 from sparseml.core.event import Event, EventType
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.quantization.pytorch import LegacyQuantizationModifierPyTorch
+from sparseml.modifiers.quantization_legacy.pytorch import LegacyQuantizationModifierPyTorch
 from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,

@@ -19,7 +19,7 @@ import pytest
 from sparseml.core.event import Event
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.quantization import LegacyQuantizationModifier
+from sparseml.modifiers.quantization_legacy import LegacyQuantizationModifier
 from tests.sparseml.modifiers.conf import setup_modifier_factory
 
 

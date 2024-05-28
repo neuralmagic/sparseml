@@ -23,11 +23,11 @@ import torch
 from torch import nn
 from transformers.models.opt.modeling_opt import OPTAttention, OptFlashAttention2
 
-from sparseml.modifiers.quantization.modification.modification_objects import (
+from sparseml.modifiers.quantization_legacy.modification.modification_objects import (
     QuantizableBatchMatmul,
     QuantizableIdentity,
 )
-from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.base import (
     check_transformers_version,

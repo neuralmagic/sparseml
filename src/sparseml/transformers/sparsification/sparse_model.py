@@ -31,7 +31,7 @@ from transformers import (
 from transformers.file_utils import WEIGHTS_NAME
 
 from compressed_tensors.compressors import ModelCompressor
-from sparseml.modifiers.quantization.modification import modify_model
+from sparseml.modifiers.quantization_legacy.modification import modify_model
 from sparseml.pytorch.model_load.helpers import (
     apply_recipe_structure_to_model,
     log_model_load,

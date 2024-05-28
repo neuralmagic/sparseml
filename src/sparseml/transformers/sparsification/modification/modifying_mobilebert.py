@@ -20,8 +20,8 @@ context of SparseML quantization
 from torch import nn
 from transformers.models.mobilebert.modeling_mobilebert import MobileBertEmbeddings
 
-from sparseml.modifiers.quantization.modification.modification_objects import QATLinear
-from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification.modification_objects import QATLinear
+from sparseml.modifiers.quantization_legacy.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.base import (
     check_transformers_version,

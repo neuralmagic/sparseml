@@ -32,11 +32,11 @@ from transformers.models.mistral.modeling_mistral import (
     repeat_kv,
 )
 
-from sparseml.modifiers.quantization.modification.modification_objects import (
+from sparseml.modifiers.quantization_legacy.modification.modification_objects import (
     QuantizableIdentity,
     QuantizableMatMul,
 )
-from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification.registry import ModificationRegistry
 from sparseml.pytorch.utils.helpers import swap_modules
 from sparseml.transformers.sparsification.modification.base import (
     check_transformers_version,

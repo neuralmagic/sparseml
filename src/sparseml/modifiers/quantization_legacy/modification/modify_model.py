@@ -15,7 +15,7 @@
 import logging
 import os
 
-from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification.registry import ModificationRegistry
 
 
 _LOGGER = logging.getLogger(__name__)
