@@ -28,6 +28,8 @@ jobs:
           fetch-depth: 1
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
+      - name: Fail
+        run: exit 1
       - name: Run oneshot tests
         run: |
           pytest tests/sparseml/transformers/obcq -m integration
