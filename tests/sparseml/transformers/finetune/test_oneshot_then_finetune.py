@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import shutil
 import unittest
 from pathlib import Path
@@ -23,6 +23,12 @@ from tests.testing_utils import requires_torch
 
 @pytest.mark.integration
 @requires_torch
+@pytest.mark.skipif(
+    "CADENCE" in os.environ
+    and (os.environ["CADENCE"] == "weekly" or os.environ["CADENCE"] == "nightly"),
+    reason="Don't run for weekly and nightly tests as those use multi gpu "
+    "runners and this test fails when ngpu>1",
+)
 class TestOneshotThenFinetune(unittest.TestCase):
     def setUp(self):
         self.output = Path("./finetune_output")
@@ -76,6 +82,7 @@ class TestOneshotThenFinetune(unittest.TestCase):
                 concatenate_data=concatenate_data,
                 splits=splits,
                 max_steps=max_steps,
+                oneshot_device=device,
             )
 
     def tearDown(self):
