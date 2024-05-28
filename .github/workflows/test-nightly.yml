@@ -18,6 +18,8 @@ jobs:
           repository: "neuralmagic/compressed-tensors"
           path: "compressed-tensors"
           ref: ${{needs.test-setup.outputs.branch}}
+      - name: Fail
+        run: exit 1
       - name: "⚙️ Install compressed-tensors dependencies"
         run: pip3 install -U pip && pip3 install setuptools compressed-tensors/
       - name: "Clean compressed-tensors directory"
@@ -28,12 +30,9 @@ jobs:
           fetch-depth: 1
       - name: "⚙️ Install dependencies"
         run: pip3 install .[dev,onnxruntime,torch,torchvision,transformers]
-      - name: Fail
-        run: exit 1
       - name: Run oneshot tests
         run: |
           pytest tests/sparseml/transformers/obcq -m integration
       - name: Run finetune tests
-        if: always()
         run: |
           pytest tests/sparseml/transformers/finetune -m integration
