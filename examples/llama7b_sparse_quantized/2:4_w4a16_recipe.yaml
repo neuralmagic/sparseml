@@ -22,7 +22,8 @@ finetuning_stage:
 quantization_stage:
   run_type: oneshot
   quantization_modifiers:
-    vLLMQuantizationModifier:
+    GPTQModifier:
+      sequential_update: false
       ignore: ["lm_head"]
       config_groups:
         group_0:
@@ -32,7 +33,3 @@ quantization_stage:
             symmetric: true
             strategy: "channel"
           targets: ["Linear"]
-    SparseGPTModifier:
-      sparsity: 0.0
-      quantize: True
-      sequential_update: false
