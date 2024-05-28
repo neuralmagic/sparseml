@@ -42,6 +42,7 @@ import torchvision
 from packaging import version
 from torch import nn
 from torch.utils.data.dataloader import DataLoader, default_collate
+from torchvision.datasets import DTD, FGVCAircraft, Flowers102  # noqa: F401
 from torchvision.transforms.functional import InterpolationMode
 
 import click
@@ -278,11 +279,25 @@ def _get_cache_path(filepath):
 
 
 def load_data(traindir, valdir, args):
+    if args.transfer_dataset is not None:
+        if args.transfer_dataset not in ("FGVCAircraft", "DTD", "Flowers102"):
+            raise ValueError(
+                "FGVCAircraft, DTD, and Flowers102 are allowed as transfer_datasets."
+            )
     # Data loading code
     _LOGGER.info("Loading data")
-    val_resize_size, val_crop_size, train_crop_size = (
+    if len(args.train_resize_size) > 2:
+        raise ValueError("--train-resize-size must be of length 1 or 2")
+    if args.train_resize_size[0] is None:
+        args.train_resize_size = None
+    if len(args.val_resize_size) > 2:
+        raise ValueError("--val-resize-size must be of length 1 or 2")
+    if args.val_resize_size[0] is None:
+        args.val_resize_size = None
+    val_resize_size, val_crop_size, train_resize_size, train_crop_size = (
         args.val_resize_size,
         args.val_crop_size,
+        args.train_resize_size,
         args.train_crop_size,
     )
     interpolation = InterpolationMode(args.interpolation)
@@ -299,19 +314,26 @@ def load_data(traindir, valdir, args):
         random_erase_prob = getattr(args, "random_erase", 0.0)
         ra_magnitude = args.ra_magnitude
         augmix_severity = args.augmix_severity
-        dataset = torchvision.datasets.ImageFolder(
-            traindir,
-            presets.ClassificationPresetTrain(
-                crop_size=train_crop_size,
-                mean=args.rgb_mean,
-                std=args.rgb_std,
-                interpolation=interpolation,
-                auto_augment_policy=auto_augment_policy,
-                random_erase_prob=random_erase_prob,
-                ra_magnitude=ra_magnitude,
-                augmix_severity=augmix_severity,
-            ),
+        train_transforms = presets.ClassificationPresetTrain(
+            crop_size=train_crop_size,
+            resize_size=train_resize_size,
+            mean=args.rgb_mean,
+            std=args.rgb_std,
+            interpolation=interpolation,
+            auto_augment_policy=auto_augment_policy,
+            random_erase_prob=random_erase_prob,
+            ra_magnitude=ra_magnitude,
+            augmix_severity=augmix_severity,
         )
+        if args.transfer_dataset is None:
+            dataset = torchvision.datasets.ImageFolder(traindir, train_transforms)
+        else:
+            dataset = eval(args.transfer_dataset)(
+                root=f"/tmp/{args.transfer_dataset}",
+                split=args.transfer_dataset_train_split,
+                transform=train_transforms,
+                download=True,
+            )
         if args.cache_dataset:
             _LOGGER.info(f"Saving dataset_train to {cache_path}")
             utils.mkdir(os.path.dirname(cache_path))
@@ -333,10 +355,18 @@ def load_data(traindir, valdir, args):
             interpolation=interpolation,
         )
 
-        dataset_test = torchvision.datasets.ImageFolder(
-            valdir,
-            preprocessing,
-        )
+        if args.transfer_dataset is None:
+            dataset_test = torchvision.datasets.ImageFolder(
+                valdir,
+                preprocessing,
+            )
+        else:
+            dataset_test = eval(args.transfer_dataset)(
+                root=f"/tmp/{args.transfer_dataset}",
+                split=args.transfer_dataset_test_split,
+                transform=preprocessing,
+                download=True,
+            )
         if args.cache_dataset:
             _LOGGER.info(f"Saving dataset_test to {cache_path}")
             utils.mkdir(os.path.dirname(cache_path))
@@ -389,9 +419,15 @@ def main(args):
     dataset, dataset_test, train_sampler, test_sampler = load_data(
         train_dir, val_dir, args
     )
-
     collate_fn = None
-    num_classes = len(dataset.classes)
+    try:
+        num_classes = len(dataset.classes)
+    except:  # noqa: E722
+        # For some reason, the classes method is not implemented for Flowers102.
+        if args.transfer_dataset == "Flowers102":
+            num_classes = 102
+        else:
+            raise ValueError(f"unknown number of classes for {args.transfer_dataset}")
     mixup_transforms = []
     if args.mixup_alpha > 0.0:
         mixup_transforms.append(
@@ -404,7 +440,7 @@ def main(args):
     if mixup_transforms:
         mixupcutmix = torchvision.transforms.RandomChoice(mixup_transforms)
 
-        def collate_fn(batch):
+        def collate_fn(batch):  # noqa: F811
             return mixupcutmix(*default_collate(batch))
 
     data_loader = torch.utils.data.DataLoader(
@@ -475,9 +511,9 @@ def main(args):
         model,
         args.weight_decay,
         norm_weight_decay=args.norm_weight_decay,
-        custom_keys_weight_decay=custom_keys_weight_decay
-        if len(custom_keys_weight_decay) > 0
-        else None,
+        custom_keys_weight_decay=(
+            custom_keys_weight_decay if len(custom_keys_weight_decay) > 0 else None
+        ),
     )
 
     opt_name = args.opt.lower()
@@ -743,7 +779,9 @@ def main(args):
             lr_scheduler.step()
 
         eval_metrics = evaluate(model, criterion, data_loader_test, device)
-        log_metrics("Test", eval_metrics, epoch, steps_per_epoch)
+        log_metrics(
+            args.transfer_dataset_test_split, eval_metrics, epoch, steps_per_epoch
+        )
 
         top1_acc = eval_metrics.acc1.global_avg
         if model_ema:
@@ -987,6 +1025,26 @@ def _deprecate_old_arguments(f):
 )
 @click.option("--dataset-path", required=True, type=str, help="dataset path")
 @click.option(
+    "--transfer-dataset",
+    required=False,
+    type=str,
+    help="Dataset to be loaded using torchvision class.",
+)
+@click.option(
+    "--transfer-dataset-train-split",
+    required=False,
+    type=str,
+    default="train",
+    help="Train split name for transfer dataset",
+)
+@click.option(
+    "--transfer-dataset-test-split",
+    required=False,
+    type=str,
+    default="test",
+    help="Test split name for transfer dataset",
+)
+@click.option(
     "--arch-key",
     default=None,
     type=str,
@@ -1203,7 +1261,8 @@ def _deprecate_old_arguments(f):
 )
 @click.option(
     "--val-resize-size",
-    default=256,
+    default=[256, 256],
+    nargs=2,
     type=int,
     help="the resize size used for validation",
 )
@@ -1212,6 +1271,19 @@ def _deprecate_old_arguments(f):
     default=224,
     type=int,
     help="the central crop size used for validation",
+)
+@click.option(
+    "--resize-square",
+    is_flag=True,
+    default=False,
+    help="whether to resize images to a square",
+)
+@click.option(
+    "--train-resize-size",
+    default=[None, None],
+    nargs=2,
+    type=int,
+    help="If set, the resize size used for training",
 )
 @click.option(
     "--train-crop-size",

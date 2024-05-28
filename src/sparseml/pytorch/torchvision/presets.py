@@ -11,6 +11,7 @@ class ClassificationPresetTrain:
         self,
         *,
         crop_size,
+        resize_size=None,
         mean=(0.485, 0.456, 0.406),
         std=(0.229, 0.224, 0.225),
         interpolation=InterpolationMode.BILINEAR,
@@ -20,7 +21,14 @@ class ClassificationPresetTrain:
         augmix_severity=3,
         random_erase_prob=0.0,
     ):
-        trans = [transforms.RandomResizedCrop(crop_size, interpolation=interpolation)]
+        if resize_size is not None:
+            trans = [
+                transforms.Resize(resize_size, interpolation=interpolation),
+            ]
+        else:
+            trans = [
+                transforms.RandomResizedCrop(crop_size, interpolation=interpolation)
+            ]
         if hflip_prob > 0:
             trans.append(transforms.RandomHorizontalFlip(hflip_prob))
         if auto_augment_policy is not None:
@@ -73,7 +81,6 @@ class ClassificationPresetEval:
         std=(0.229, 0.224, 0.225),
         interpolation=InterpolationMode.BILINEAR,
     ):
-
         self.transforms = transforms.Compose(
             [
                 transforms.Resize(resize_size, interpolation=interpolation),
