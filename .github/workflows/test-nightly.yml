@@ -18,3 +18,5 @@ jobs:
           repository: "neuralmagic/compressed-tensors"
           path: "compressed-tensors"
           ref: ${{needs.test-setup.outputs.branch}}
+      - name: Fail
+        run: exit 1
