@@ -25,7 +25,7 @@ env:
   RELEASE: 'false'
   # DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
   DEV: 'false'
-  NIGHTLY: ${{ DEV == 'false' && RELEASE == 'false'}}
+  NIGHTLY: ${{ env.DEV == 'false' && env.RELEASE == 'false'}}
 jobs:
   set-outputs:
     runs-on: ubuntu-latest
