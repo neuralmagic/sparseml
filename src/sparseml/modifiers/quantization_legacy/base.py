@@ -17,17 +17,17 @@ from typing import Any, Dict, List, Optional
 from sparseml.core import Event, Modifier
 
 
-__all__ = ["QuantizationModifier"]
+__all__ = ["LegacyQuantizationModifier"]
 
 
-class QuantizationModifier(Modifier):
+class LegacyQuantizationModifier(Modifier):
     """
     Enables quantization aware training (QAT) for a given module or its submodules
     After the start epoch, the specified module(s) forward pass will emulate
     quantized execution and the modifier will be enabled until training is completed.
 
     | Sample yaml:
-    |   QuantizationModifier:
+    |   LegacyQuantizationModifier:
     |       start: 0.0
     |       scheme:
     |           input_activations:

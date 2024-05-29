@@ -5,14 +5,14 @@ test_stage:
             config_groups:
                 group_0:
                     weights:
-                        num_bits: 8
+                        num_bits: 4
                         type: "int"
-                        symmetric: true
-                        strategy: "tensor"
+                        symmetric: False
+                        strategy: "channel"
                     input_activations: null
                     output_activations: null
-                    targets: ["Linear", "Embedding"]
+                    targets: ["Linear"]
         GPTQModifier:
             block_size: 128
             sequential_update: False
-            targets: ["re:model.layers.\\d+$"]
+            targets: ["model.layers.0", "model.layers.1", "model.layers.2"]

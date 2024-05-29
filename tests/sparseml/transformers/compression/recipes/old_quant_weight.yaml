@@ -1,6 +1,6 @@
 test_stage:
     quant_modifiers:
-        QuantizationModifier:
+        LegacyQuantizationModifier:
             ignore:
                 - model.layers.0.mlp.down_proj
                 - lm_head
@@ -31,5 +31,4 @@ test_stage:
         GPTQModifier:
             block_size: 128
             sequential_update: False
-            percdamp: 0.01
             targets: ["re:model.layers.\\d+$"]

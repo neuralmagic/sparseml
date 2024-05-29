@@ -1,6 +1,6 @@
 test_stage:
     quant_modifiers:
-        vLLMQuantizationModifier:
+        QuantizationModifier:
             ignore: ["lm_head", "model.layers.0.mlp.down_proj"]
             config_groups:
                 group_0:
@@ -28,5 +28,4 @@ test_stage:
         GPTQModifier:
             block_size: 128
             sequential_update: False
-            percdamp: 0.01
             targets: ["re:model.layers.\\d+$"]

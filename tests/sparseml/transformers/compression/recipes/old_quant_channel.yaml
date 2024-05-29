@@ -13,25 +13,16 @@ test_stage:
                 - MatMulLeftInput_PV
                 - MatMulRightInput_PV
                 - MatMulOutput_PV
+                - Embedding
             scheme_overrides:
                 Linear:
                     weights:
-                        num_bits: 8
-                        symmetric: true
-                        strategy: "tensor"
-                    input_activations:
-                        num_bits: 8
+                        num_bits: 4
                         symmetric: false
-                        strategy: "tensor"
-                    output_activations: null
-                Embedding:
-                    weights:
-                        num_bits: 8
-                        symmetric: true
-                        strategy: "tensor"
+                        strategy: "channel"
                     input_activations: null
                     output_activations: null
         GPTQModifier:
             block_size: 128
             sequential_update: False
-            targets: ["re:model.layers.\\d+$"]
+            targets: ["model.layers.0", "model.layers.1", "model.layers.2"]

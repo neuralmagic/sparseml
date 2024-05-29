@@ -26,7 +26,7 @@ from packaging import version
 from torch import quantization as torch_quantization
 from torch.nn import BatchNorm2d, Conv2d, Embedding, Module, ReLU
 
-from sparseml.modifiers.quantization.utils.quantization_scheme import (
+from sparseml.modifiers.quantization_legacy.utils.quantization_scheme import (
     QuantizationArgs,
     QuantizationScheme,
     get_observer,

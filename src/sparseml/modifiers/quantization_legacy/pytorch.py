@@ -19,18 +19,18 @@ import torch
 from torch.nn import Module
 
 from sparseml.core import Event, EventType, State
-from sparseml.modifiers.quantization.base import QuantizationModifier
-from sparseml.modifiers.quantization.modification import modify_model
-from sparseml.modifiers.quantization.utils.helpers import (
+from sparseml.modifiers.quantization_legacy.base import LegacyQuantizationModifier
+from sparseml.modifiers.quantization_legacy.modification import modify_model
+from sparseml.modifiers.quantization_legacy.utils.helpers import (
     configure_module_bn_wrappers,
     freeze_bn_stats,
     fuse_module_conv_bn_relus,
 )
-from sparseml.modifiers.quantization.utils.quantization_scheme import (
+from sparseml.modifiers.quantization_legacy.utils.quantization_scheme import (
     QuantizationScheme,
     QuantizationSchemeLoadable,
 )
-from sparseml.modifiers.quantization.utils.quantize import (
+from sparseml.modifiers.quantization_legacy.utils.quantize import (
     convert_module_qat_from_schemes,
     raise_if_torch_quantization_not_available,
     set_quantization_schemes,
@@ -42,7 +42,7 @@ from sparseml.utils.fsdp.context import summon_full_params_context
 _LOGGER = logging.getLogger(__name__)
 
 
-class QuantizationModifierPyTorch(QuantizationModifier):
+class LegacyQuantizationModifierPyTorch(LegacyQuantizationModifier):
     """
     Pytorch-specific implementation of quantization modifier
 

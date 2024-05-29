@@ -30,7 +30,9 @@ try:
 except Exception:
     torch_quantization = None
 
-from sparseml.modifiers.quantization.utils.fake_quant_wrapper import FakeQuantizeWrapper
+from sparseml.modifiers.quantization_legacy.utils.fake_quant_wrapper import (
+    FakeQuantizeWrapper,
+)
 
 
 __all__ = [
