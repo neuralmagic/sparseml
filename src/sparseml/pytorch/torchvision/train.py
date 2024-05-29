@@ -286,14 +286,10 @@ def load_data(traindir, valdir, args):
             )
     # Data loading code
     _LOGGER.info("Loading data")
-    if len(args.train_resize_size) > 2:
-        raise ValueError("--train-resize-size must be of length 1 or 2")
-    if args.train_resize_size[0] is None:
-        args.train_resize_size = None
-    if len(args.val_resize_size) > 2:
-        raise ValueError("--val-resize-size must be of length 1 or 2")
-    if args.val_resize_size[0] is None:
-        args.val_resize_size = None
+    if args.train_resize_size is not None:
+        args.train_resize_size = [args.train_resize_size, args.train_resize_size]
+    if args.val_resize_size is not None:
+        args.val_resize_size = [args.val_resize_size, args.val_resize_size]
     val_resize_size, val_crop_size, train_resize_size, train_crop_size = (
         args.val_resize_size,
         args.val_crop_size,
@@ -1259,10 +1255,9 @@ def _deprecate_old_arguments(f):
 )
 @click.option(
     "--val-resize-size",
-    default=[256, 256],
-    nargs=2,
+    default=256,
     type=int,
-    help="the resize size used for validation",
+    help="the resize size used for validation (always square)",
 )
 @click.option(
     "--val-crop-size",
@@ -1272,16 +1267,15 @@ def _deprecate_old_arguments(f):
 )
 @click.option(
     "--train-resize-size",
-    default=[None, None],
-    nargs=2,
+    default=None,
     type=int,
-    help="If set, the resize size used for training",
+    help="If set, the resize size used for training (always square)",
 )
 @click.option(
     "--train-crop-size",
     default=224,
     type=int,
-    help="the random crop size used for training",
+    help="the random crop size used for training (always square)",
 )
 @click.option(
     "--clip-grad-norm",
