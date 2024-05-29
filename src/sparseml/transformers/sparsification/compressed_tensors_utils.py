@@ -83,10 +83,10 @@ def modify_save_pretrained(model: PreTrainedModel):
             # check if we are in the old quantization framework
             if qat_active(model) and not is_model_quantized(model):
                 _LOGGER.info(
-                    "Compression for models quantized with QuantizationModifer is not "
-                    "supported. Save will be run without compression and no sparsity "
-                    "statistics will be calculated. To save a quantized model in a "
-                    "compressed state please use vLLMQuantizationModifier instead."
+                    "Compression for models quantized with LegacyQuantizationModifer "
+                    "is not supported. Save will be run without compression and no "
+                    "sparsity statistics will be calculated. To save a quantized model "
+                    "in a compressed state please use QuantizationModifier instead."
                 )
 
                 original_save_pretrained.__get__(model, model_class)(
