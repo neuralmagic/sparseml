@@ -131,7 +131,7 @@ class TestEndToEndExport:
 
         recipe = """test_stage:
           quant_modifiers:
-            QuantizationModifier:
+            LegacyQuantizationModifier:
               post_oneshot_calibration: False
               scheme_overrides:
                 Embedding:
