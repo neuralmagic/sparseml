@@ -37,7 +37,7 @@ class TestFakeQuantWrapper(unittest.TestCase):
         self.recipe = """
         first_stage:
             quant_modifiers:
-                QuantizationModifier:
+                LegacyQuantizationModifier:
                     ignore:
                         - Embedding
                     scheme_overrides:

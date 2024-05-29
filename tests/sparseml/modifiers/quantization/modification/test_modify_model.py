@@ -17,8 +17,10 @@ from copy import copy
 
 import pytest
 
-from sparseml.modifiers.quantization.modification import modify_model
-from sparseml.modifiers.quantization.modification.registry import ModificationRegistry
+from sparseml.modifiers.quantization_legacy.modification import modify_model
+from sparseml.modifiers.quantization_legacy.modification.registry import (
+    ModificationRegistry,
+)
 from sparsezoo.utils.registry import _ALIAS_REGISTRY, _REGISTRY, standardize_lookup_name
 
 
