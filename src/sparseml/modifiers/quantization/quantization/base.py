@@ -24,10 +24,10 @@ from compressed_tensors.quantization import (
 from sparseml.core import Event, Modifier
 
 
-__all__ = ["vLLMQuantizationModifier"]
+__all__ = ["QuantizationModifier"]
 
 
-class vLLMQuantizationModifier(Modifier):
+class QuantizationModifier(Modifier):
     """
     Enables post training quantization (PTQ) and quantization aware training (QAT) for a
     given module or its submodules. After calibration (PTQ) or the start epoch (QAT),

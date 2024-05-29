@@ -5,7 +5,7 @@ dataset: open_platypus
 first_recipe: |
     first_stage:
         quant_modifiers:
-            QuantizationModifier:
+            LegacyQuantizationModifier:
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm
@@ -17,7 +17,7 @@ first_recipe: |
 second_recipe: |
     second_stage:
         quant_modifiers:
-            QuantizationModifier:
+            LegacyQuantizationModifier:
                 ignore:
                     - LlamaRotaryEmbedding
                     - LlamaRMSNorm

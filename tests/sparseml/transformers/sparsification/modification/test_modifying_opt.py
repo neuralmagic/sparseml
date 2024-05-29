@@ -24,7 +24,7 @@ from sparseml.transformers.sparsification.modification.modifying_opt import (
 def opt_recipe():
     return """test_stage:
   quant_modifiers:
-    QuantizationModifier:
+    LegacyQuantizationModifier:
       ignore:
         - BMMLeftInput_QK
         - BMMRightInput_QK
