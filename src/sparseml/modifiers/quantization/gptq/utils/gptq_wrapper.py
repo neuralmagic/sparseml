@@ -195,11 +195,6 @@ class GPTQWrapper(ModuleCompressionWrapper):
                                 quant_scheme.weights,
                             )
                         else:  # strategy == QuantizationStrategy.GROUP
-                            # TODO: for grouped quantization its always 3d but the last
-                            # dim is always 1. Can we just make it 2d instead and avoid?
-                            scale = scale[:, :, 0]
-                            zero_point = zero_point[:, :, 0]
-
                             # get the group index for the current column
                             column_idx = i1 + i
                             input_dim_group = (
