@@ -823,7 +823,8 @@ def get_quantized_layers(module: Module) -> List[Tuple[str, Module]]:
     quantized_layers = []
     for (name, mod) in module.named_modules():
         if hasattr(mod, "quantization_scheme"):
-            if mod.quantization_scheme.weights is not None:
+            weight_scheme = getattr(mod.quantization_scheme, "weights", None)
+            if weight_scheme is not None:
                 quantized_layers.append((name, mod))
 
     return quantized_layers
