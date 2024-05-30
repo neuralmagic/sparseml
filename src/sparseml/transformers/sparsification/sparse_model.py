@@ -111,6 +111,14 @@ class SparseAutoModelForCausalLM(AutoModelForCausalLM):
         model = super(AutoModelForCausalLM, cls).from_pretrained(
             pretrained_model_name_or_path, *model_args, **kwargs
         )
+        if model.dtype != model.config.torch_dtype:
+            _LOGGER.warning(
+                f"The dtype of the loaded model: {model.dtype} is different "
+                "from from the dtype specified in the model config: "
+                f"{model.config.torch_dtype}."
+                "To load the model in the format that it was previously saved in, "
+                "set torch_dtype=`auto` in the SparseAutoModel creation call."
+            )
         logger.setLevel(level=restore_log_level)
         # override the PreTrainedModel instance with compression save function
         modify_save_pretrained(model)
