@@ -18,7 +18,7 @@ import pytest
 from transformers import AutoConfig, AutoModel
 
 from accelerate import init_empty_weights
-from sparseml.modifiers.quantization.modification import modify_model
+from sparseml.modifiers.quantization_legacy.modification import modify_model
 from sparseml.pytorch.model_load.helpers import apply_recipe_structure_to_model
 from sparseml.transformers import SparseAutoConfig, SparseAutoModelForCausalLM
 
