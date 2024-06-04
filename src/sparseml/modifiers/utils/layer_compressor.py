@@ -131,7 +131,7 @@ class LayerCompressor:
             module_wrapper.free()
         self.modules = None
 
-    def compress(self):
+    def compress(self, actorder: bool = False):
         """
         Apply compression to each wrapped submodule in the layer
         """
@@ -141,7 +141,7 @@ class LayerCompressor:
             if isinstance(module, self.module_compressor_class):
                 full_name = self._get_full_submodule_name(module.name)
                 _LOGGER.info(f"Compressing {full_name}...")
-                module.fasterprune(**self.args)
+                module.fasterprune(actorder=actorder, **self.args)
 
         self.layer.apply(prune)
 

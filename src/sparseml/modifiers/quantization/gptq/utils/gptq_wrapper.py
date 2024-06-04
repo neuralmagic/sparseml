@@ -81,6 +81,7 @@ class GPTQWrapper(ModuleCompressionWrapper):
 
     def fasterprune(
         self,
+        actorder: bool = False,
         blocksize: int = 128,
         percdamp: float = 0.01,
     ):
@@ -108,6 +109,12 @@ class GPTQWrapper(ModuleCompressionWrapper):
         dead = torch.diag(self.H) == 0
         self.H[dead, dead] = 1
         W[:, dead] = 0
+
+        if actorder:
+            perm = torch.argsort(torch.diag(H), descending=True)
+            W = W[:, perm]
+            H = H[perm][:, perm]
+            invperm = torch.argsort(perm)
 
         Losses = torch.zeros(self.rows, device=self.dev)
 
@@ -153,6 +160,7 @@ class GPTQWrapper(ModuleCompressionWrapper):
             for i in range(count):
                 w = W1[:, i]
                 d = Hinv1[i, i]
+
                 q = w.clone()
                 if sparsity >= SPARSITY_THRESHOLD:
                     q[mask1[:, i]] = 0
@@ -226,6 +234,9 @@ class GPTQWrapper(ModuleCompressionWrapper):
 
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())
+
+        if actorder:
+            W = W[:, invperm]
 
         if isinstance(self.layer, transformers.Conv1D):
             W = W.t()

@@ -80,6 +80,7 @@ class GPTQModifier(Modifier):
         and activation 8 bit quantization on the Linear layers.
     """
 
+    actorder: bool = False
     sequential_update: Optional[bool] = False
     targets: Union[str, List[str], None] = None
     block_size: int = 128
