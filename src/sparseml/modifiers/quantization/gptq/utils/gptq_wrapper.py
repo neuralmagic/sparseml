@@ -111,9 +111,9 @@ class GPTQWrapper(ModuleCompressionWrapper):
         W[:, dead] = 0
 
         if actorder:
-            perm = torch.argsort(torch.diag(H), descending=True)
+            perm = torch.argsort(torch.diag(self.H), descending=True)
             W = W[:, perm]
-            H = H[perm][:, perm]
+            self.H = self.H[perm][:, perm]
             invperm = torch.argsort(perm)
 
         Losses = torch.zeros(self.rows, device=self.dev)
