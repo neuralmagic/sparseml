@@ -50,7 +50,9 @@ def is_gptq_quantization_target(key: str) -> bool:
 @_log_transformation
 def transform_exllama_names(state_dict: Dict[str, Tensor]) -> Dict[str, Tensor]:
     """
-    Transforms the state_dict keys to match with exllama format
+    Transforms the exallama state_dict keys to be compatible with
+    SparseAutoModel classes.
+
     The renames include:
         - scales -> weight_fake_quant.scale
         - qzeros -> weight_fake_quant.zero_point
@@ -85,17 +87,16 @@ def transform_autogptq_weights_and_reshape_tensors(
     state_dict: Dict[str, Tensor]
 ) -> Dict[str, Tensor]:
     """
-    Tranforms weights into their required shapes and types for Exllama format
+    Tranforms weights into their required shapes and types for Exllama
+    to CompressedTensors conversion
+
     The transformations include:
-        - Quantize the weight tensor using the scales, zeros, and g_idx tensors
-            additonally pack a group of 8 of them into a single 32 bit integer
-            and rename the tensor to qweight
-        - Reshape the scales tensor to [1, x] and convert to fp16
-        - Reshape the zero points tensor to [1, x] of type int32 and fill with zeros
-            (it is assumed that quantization was symmetric)
+        - Unpack ad dequantize the weight tensor using the scales, zeros, and g_idx tensors
+        - Squeeze the scales tensor to [x] from [1, x]
+
     :pre-condition: The state_dict should be for a quantized model
-    :pre-condition: The state_dict should have been transformed to exllama names
     :pre-condition: The state_dict should have the bias and g_idx tensors added
+
     :param state_dict: The state_dict to be transformed
     :return: The transformed state_dict, with repacked and reshaped tensors
     """
