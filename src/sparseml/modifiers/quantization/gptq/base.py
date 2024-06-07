@@ -77,6 +77,7 @@ class GPTQModifier(Modifier):
         QuantizationScheme except targets, which will be set to the targets parameter
         set at the modifier level. Can also be set to a dictionary of the format
         `preset_scheme_name: targets` for example: `W8A8: ['Linear']` for weight 8 bit
+        or a string of a preset scheme if targets is provided
         and activation 8 bit quantization on the Linear layers.
     """
 
@@ -89,7 +90,7 @@ class GPTQModifier(Modifier):
     ignore: List[str] = Field(default_factory=list)
     disable_quantization_observer_epoch: Optional[float] = None
     num_calibration_steps: Optional[int] = None
-    scheme: Optional[Dict[str, Any]] = None
+    scheme: Optional[Union[str, Dict[str, Any]]] = None
     compressible_layers_: Optional[List] = None
     quantization_modifier_: Any = None
 
@@ -167,8 +168,15 @@ class GPTQModifier(Modifier):
             if getattr(self, key, False)
         }
 
+        if isinstance(self.targets, str):
+            self.targets = [self.targets]
+
         if self.scheme is not None:
             # takes precedence over config_groups
+
+            if isinstance(self.scheme, str) and is_preset_scheme(self.scheme):
+                # attach targets to scheme
+                self.scheme = {self.scheme: self.targets}
 
             if any(is_preset_scheme(key) for key in self.scheme.keys()):
                 config_groups = QuantizationConfig(
