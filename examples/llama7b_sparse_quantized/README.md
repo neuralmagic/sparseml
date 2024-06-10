@@ -64,7 +64,7 @@ apply(
 ```
 
 
-### Step3: Compression
+### Step 3: Compression
 
 The resulting model will be uncompressed. To save a final compressed copy of the model 
 run the following:
