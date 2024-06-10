@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 import sparseml
+from compressed_tensors.compressors.utils import tensor_follows_mask_structure
 from parameterized import parameterized_class
 from tests.testing_utils import parse_params, requires_torch
 
@@ -26,29 +27,6 @@ from tests.testing_utils import parse_params, requires_torch
 MASK_STRUCTURE_CONFIGS_DIRECTORY = (
     "tests/sparseml/transformers/obcq/obcq_configs/consec_runs/mask_structure"
 )
-
-
-def tensor_follows_mask_structure(tensor, mask: str = "2:4"):
-    """
-    :param tensor: tensor to check
-    :param mask: mask structure to check for, in the format "n:m"
-    :return: True if the tensor follows the mask structure, False otherwise.
-        Note, some weights can incidentally be zero, so we check for
-        atleast n zeros in each chunk of size m
-    """
-    import torch
-
-    n, m = tuple(map(int, mask.split(":")))
-    # Reshape the tensor into chunks of size m
-    tensor = tensor.view(-1, m)
-
-    # Count the number of zeros in each chunk
-    zero_counts = (tensor == 0).sum(dim=1)
-
-    # Check if the number of zeros in each chunk atleast n
-    # Greater than sign is needed as some weights can incidentally
-    # be zero
-    return torch.all(zero_counts >= n)
 
 
 @requires_torch
