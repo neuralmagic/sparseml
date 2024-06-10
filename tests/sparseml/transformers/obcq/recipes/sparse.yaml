@@ -6,8 +6,3 @@ test_stage:
       sequential_update: False
       percdamp: 0.01
       mask_structure: "0:0"
-      targets: [
-        "model.layers.0",
-        "model.layers.1",
-        "lm_head"
-      ]
