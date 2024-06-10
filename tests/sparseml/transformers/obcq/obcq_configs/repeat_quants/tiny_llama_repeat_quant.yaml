@@ -1,6 +1,6 @@
 cadence: "commit"
 test_type: "sanity"
-model: "Xenova/llama2.c-stories15M"
+model: "HuggingFaceM4/tiny-random-LlamaForCausalLM"
 dataset: open_platypus
 first_recipe: |
   first_stage:
