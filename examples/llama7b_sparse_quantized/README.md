@@ -40,7 +40,7 @@ run the following:
 
 ```
 import torch
-from sparseml import SparseAutoModelForCausalLM
+from sparseml.transformers import SparseAutoModelForCausalLM
 
 model = SparseAutoModelForCausalLM.from_pretrained(output_dir, torch_dtype=torch.bfloat16)
 model.save_pretrained(compressed_output_dir, save_compressed=True)
