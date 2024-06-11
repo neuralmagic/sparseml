@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import Field
 
 from compressed_tensors.quantization import (
-    QuantizationConfig,
     QuantizationScheme,
     is_preset_scheme,
     preset_name_to_scheme,
