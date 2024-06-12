@@ -1,8 +1,7 @@
 name: Run Nightly Tests
 on:
-  schedule:
-    - cron: '0 20 * * *'
   workflow_dispatch:
+  workflow_call:
 jobs:
   test-nightly-tests:
     runs-on: k8s-mle-gpu-12-vcpu-225GB-ram-2-a6000-48G
@@ -33,6 +32,5 @@ jobs:
         run: |
           pytest tests/sparseml/transformers/obcq -m integration
       - name: Run finetune tests
-        if: always()
         run: |
           pytest tests/sparseml/transformers/finetune -m integration
