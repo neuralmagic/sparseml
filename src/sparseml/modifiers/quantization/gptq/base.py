@@ -18,9 +18,9 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import Field
 
 from compressed_tensors.quantization import (
-    QuantizationConfig,
     QuantizationScheme,
     is_preset_scheme,
+    preset_name_to_scheme,
 )
 from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
@@ -178,29 +178,23 @@ class GPTQModifier(Modifier):
                 # attach targets to scheme
                 self.scheme = {self.scheme: self.targets}
 
-            if any(is_preset_scheme(key) for key in self.scheme.keys()):
-                config_groups = QuantizationConfig(
-                    config_groups=self.scheme
-                ).config_groups
-                quant_args["config_groups"] = config_groups
-            else:
-                targets = self.targets or ["Linear"]
-                config_group = QuantizationScheme.model_validate(
-                    {"targets": targets, **self.scheme}
-                )
-                quant_args["config_groups"] = {"config_group_0": config_group}
+            quant_args["config_groups"] = {}
+            for idx, key in enumerate(self.scheme.keys()):
+                if is_preset_scheme(key):
+                    scheme = preset_name_to_scheme(key, self.scheme[key])
+                else:
+                    scheme = QuantizationScheme.model_validate(
+                        {"targets": self.scheme[key], **self.scheme}
+                    )
 
-            targets = self.targets or ["Linear"]
-            config_group = QuantizationScheme.model_validate(
-                {"targets": targets, **self.scheme}
-            )
-            quant_args["config_groups"] = {"config_group_0": config_group}
+                group_name = f"group_{idx}"
+                quant_args["config_groups"][group_name] = scheme
 
-        if "config_groups" not in quant_args:
+        if "config_groups" not in quant_args or len("config_groups") == 0:
             default_quant_scheme = QuantizationScheme.default_scheme(
                 targets=self.targets
             )
-            quant_args["config_groups"] = {"config_group_0": default_quant_scheme}
+            quant_args["config_groups"] = {"group_0": default_quant_scheme}
         _LOGGER.info(f"Building quantization modifier with args: {quant_args}")
         vllm_quant_config = {"QuantizationModifier": quant_args}
         self._build_quant_modifier_from_dict(vllm_quant_config, framework)
