@@ -20,11 +20,8 @@ import torch
 from transformers import AutoConfig
 
 import sparseml
-from compressed_tensors import (
-    COMPRESSION_CONFIG_NAME,
-    QUANTIZATION_CONFIG_NAME,
-    SPARSITY_CONFIG_NAME,
-)
+from compressed_tensors import COMPRESSION_CONFIG_NAME
+from compressed_tensors.compressors import ModelCompressor
 from compressed_tensors.config import BitmaskConfig, DenseSparsityConfig
 from compressed_tensors.quantization import (
     QuantizationStatus,
@@ -96,7 +93,7 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
 
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
     compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
-    sparsity_config = compression_config.get(SPARSITY_CONFIG_NAME, None)
+    sparsity_config = ModelCompressor.parse_sparsity_config(compression_config)
     assert (
         sparsity_config["format"] == "dense"
         if (not compressed and config is None)
@@ -146,7 +143,8 @@ def test_dense_model_save(tmp_path, skip_compression_stats, save_compressed):
 
     # for models with 0% sparsity no sparsity config is saved regardless
     config = AutoConfig.from_pretrained(tmp_path / "dense_out")
-    sparsity_config = getattr(config, SPARSITY_CONFIG_NAME, None)
+    compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
+    sparsity_config = ModelCompressor.parse_sparsity_config(compression_config)
     assert sparsity_config is None
 
     shutil.rmtree(tmp_path)
@@ -203,7 +201,7 @@ def test_quant_model_reload(format, dtype, tmp_path):
 
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
     compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
-    quant_config = compression_config.get(QUANTIZATION_CONFIG_NAME, None)
+    quant_config = ModelCompressor.parse_quantization_config(compression_config)
     assert quant_config["format"] == format
 
     dense_model = SparseAutoModelForCausalLM.from_pretrained(
@@ -273,7 +271,7 @@ def test_quant_infer_format(status, expected_format, expected_dtype, tmp_path):
 
     config = AutoConfig.from_pretrained(tmp_path / "compress_out")
     compression_config = getattr(config, COMPRESSION_CONFIG_NAME, None)
-    quant_config = compression_config.get(QUANTIZATION_CONFIG_NAME, None)
+    quant_config = ModelCompressor.parse_quantization_config(compression_config)
     assert quant_config["quantization_status"] == status.value
     assert quant_config["format"] == expected_format
 
