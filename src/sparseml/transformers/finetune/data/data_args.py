@@ -167,12 +167,13 @@ class DataTrainingArguments(CustomDataTrainingArguments):
             ),
         },
     )
-    min_tokens_per_group: Optional[float] = field(
+    min_tokens_per_module: Optional[float] = field(
         default=0.2,
         metadata={
             "help": (
-                "The minimum percentage of tokens a module should receive during each "
-                "forward pass of the calibration. If a module receives fewer tokens, "
+                "The minimum percentage of tokens (out of the total number) "
+                "that the module should 'receive' throughout the forward "
+                "pass of the calibration. If a module receives fewer tokens, "
                 "a warning will be logged."
             ),
         },

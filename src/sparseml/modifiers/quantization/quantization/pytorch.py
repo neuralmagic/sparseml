@@ -76,7 +76,7 @@ class QuantizationModifierPyTorch(QuantizationModifier):
             module.apply(set_module_for_calibration)
             self._calibrate_if_possible(module)
             self._check_token_distribution(
-                module, threshold=kwargs.get("min_tokens_per_group", None)
+                module, threshold=kwargs.get("min_tokens_per_module")
             )
             module.apply(freeze_module_quantization)
 
@@ -149,18 +149,18 @@ class QuantizationModifierPyTorch(QuantizationModifier):
     ):
         """
         A helper function that warns when a module has seen
-        fewer than threshold % of all the tokens in the batch.
+        fewer than threshold % of all the tokens throughout
+        the calibration process.
 
         Checks are only triggered if threshold is not None.
 
-        :param batch: the batch of tokens (batch_size, sequence_length)
-        :param model: the model to investigate
+        :param model: the model to validate
         :param threshold: the minimum percentage of tokens
             (out of all the tokens in a batch) a module should
-            receive during each forward pass of the calibration
+            receive during calibration
         """
         if threshold is None:
-            _LOGGER.debug("Skipping token distribution check. Threshold is None.")
+            _LOGGER.debug("Skipping token distribution check. threshold is None.")
             return
 
         all_tokens = self.calibration_dataloader_.dataset["input_ids"]
