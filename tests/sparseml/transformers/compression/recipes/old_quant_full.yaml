@@ -1,6 +1,6 @@
 test_stage:
     quant_modifiers:
-        QuantizationModifier:
+        LegacyQuantizationModifier:
             ignore:
                 - model.layers.0.mlp.down_proj
                 - lm_head
@@ -31,9 +31,7 @@ test_stage:
                         strategy: "tensor"
                     input_activations: null
                     output_activations: null
-        SparseGPTModifier:
-            sparsity: 0.0
+        GPTQModifier:
             block_size: 128
             sequential_update: False
-            quantize: True
             targets: ["re:model.layers.\\d+$"]

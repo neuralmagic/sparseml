@@ -1,6 +1,6 @@
 test_stage:
     quant_modifiers:
-        vLLMQuantizationModifier:
+        QuantizationModifier:
             ignore: ["lm_head"]
             config_groups:
                 group_0:

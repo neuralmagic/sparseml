@@ -25,7 +25,6 @@ except ImportError as err:
 
 import logging
 import math
-from copy import copy
 
 import torch
 import torch.nn as nn
@@ -85,6 +84,7 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         prunem: int = 0,
         blocksize: int = 128,
         percdamp: float = 0.01,
+        preserve_sparsity_mask: bool = False,
     ):
         """
         Run pruning and quantization(if applicable) on the layer up to the target
@@ -95,7 +95,8 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         :param prunem: M for N:M pruning
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
-        diagonal norm
+            diagonal norm
+        :param preserve_sparsity_mask: Extend or ignore the base sparsity mask
         """
         final_shape = self.layer.weight.shape
         final_dtype = self.layer.weight.dtype
@@ -124,6 +125,13 @@ class SparseGptWrapper(ModuleCompressionWrapper):
         Hinv = self.H
 
         mask = None
+        if preserve_sparsity_mask:
+            # compute existing sparsity mask
+            mask = torch.where(
+                W == 0,
+                torch.tensor(1, dtype=torch.bool),
+                torch.tensor(0, dtype=torch.bool),
+            )
 
         # See section 3.4 of https://arxiv.org/abs/2203.07259
         for i1 in range(0, self.columns, blocksize):
@@ -139,12 +147,32 @@ class SparseGptWrapper(ModuleCompressionWrapper):
             if prunen == 0:
                 if mask is not None:
                     mask1 = mask[:, i1:i2]
+                    if int(W1.numel() * sparsity) > mask1.sum():
+                        # target sparsity is higher than base sparsity, extend mask1
+                        tmp = (
+                            (~mask[:, i1:i2])
+                            * W1**2
+                            / (torch.diag(Hinv1).reshape((1, -1))) ** 2
+                        )
+                        thresh = torch.sort(tmp.flatten())[0][
+                            int(tmp.numel() * sparsity)
+                        ]
+                        mask1 = tmp <= thresh
+                    else:
+                        raise ValueError(
+                            "The target sparsity is lower than the sparsity "
+                            "of the base model. Please retry "
+                            "after turning preserve_sparsity_mask=False"
+                        )
                 else:
                     tmp = W1**2 / (torch.diag(Hinv1).reshape((1, -1))) ** 2
                     thresh = torch.sort(tmp.flatten())[0][int(tmp.numel() * sparsity)]
                     mask1 = tmp <= thresh
             else:
-                mask1 = torch.zeros_like(W1) == 1
+                if mask is not None:
+                    mask1 = mask[:, i1:i2]
+                else:
+                    mask1 = torch.zeros_like(W1) == 1
 
             for i in range(count):
                 w = W1[:, i]
@@ -155,69 +183,15 @@ class SparseGptWrapper(ModuleCompressionWrapper):
                         W1[:, i : (i + prunem)] ** 2
                         / (torch.diag(Hinv1)[i : (i + prunem)].reshape((1, -1))) ** 2
                     )
+                    if mask is not None:
+                        tmp = tmp * (~mask[:, i : (i + prunem)])
+
                     mask1.scatter_(
                         1, i + torch.topk(tmp, prunen, dim=1, largest=False)[1], True
                     )
 
                 q = w.clone()
                 q[mask1[:, i]] = 0
-
-                if hasattr(self.layer, "weight_fake_quant"):
-                    scale = self.layer.weight_fake_quant.scale
-                    zero_point = self.layer.weight_fake_quant.zero_point
-                    dtype = self.layer.weight_fake_quant.dtype
-                    qscheme = self.layer.weight_fake_quant.qscheme
-                    if qscheme in [torch.per_tensor_affine, torch.per_tensor_symmetric]:
-                        q = torch.quantize_per_tensor(q, scale, zero_point, dtype)
-                    else:
-                        q = torch.quantize_per_channel(q, scale, zero_point, 0, dtype)
-                    q = torch.dequantize(q)
-                elif hasattr(self.layer, "quantization_scheme"):
-                    quant_scheme = self.layer.quantization_scheme
-                    if quant_scheme.weights is not None:
-                        scale = self.layer.weight_scale
-                        zero_point = self.layer.weight_zero_point
-                        from compressed_tensors.quantization import QuantizationStrategy
-                        from compressed_tensors.quantization.lifecycle.forward import (
-                            fake_quantize,
-                        )
-
-                        strategy = quant_scheme.weights.strategy
-
-                        if strategy == QuantizationStrategy.TENSOR:
-                            q = fake_quantize(
-                                q,
-                                scale,
-                                zero_point,
-                                self.layer.quantization_scheme.weights,
-                            )
-                        elif strategy == QuantizationStrategy.CHANNEL:
-                            # TODO: for channelwise why isn't this just a 1d tensor?
-                            q = fake_quantize(
-                                q,
-                                scale[:, 0],
-                                zero_point[:, 0],
-                                quant_scheme.weights,
-                            )
-                        else:  # strategy == QuantizationStrategy.CHANNEL
-                            # TODO: for grouped quantization its always 3d but the last
-                            # dim is always 1. Can we just make it 2d instead and avoid?
-                            scale = scale[:, :, 0]
-                            zero_point = zero_point[:, :, 0]
-
-                            # get the group index for the current column
-                            input_dim_group = i // quant_scheme.weights.group_size
-
-                            # Since we're only applying quantization to a slice, this
-                            # ends up being a channelwise application
-                            altered_qargs = copy(quant_scheme.weights)
-                            altered_qargs.strategy = QuantizationStrategy.CHANNEL
-                            q = fake_quantize(
-                                q,
-                                scale[:, input_dim_group],
-                                zero_point[:, input_dim_group],
-                                altered_qargs,
-                            )
 
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
@@ -229,7 +203,12 @@ class SparseGptWrapper(ModuleCompressionWrapper):
             W[:, i1:i2] = Q1
             Losses += torch.sum(Losses1, 1) / 2
 
-            W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
+            if preserve_sparsity_mask:
+                # respect the sparsity of other groups
+                # really not needed, but kept for explicitness
+                W[:, i2:] -= (~mask[:, i2:]) * Err1.matmul(Hinv[i1:i2, i2:])
+            else:
+                W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())

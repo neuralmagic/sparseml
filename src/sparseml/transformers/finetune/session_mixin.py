@@ -503,15 +503,22 @@ class SessionManagerMixIn:
             f"Sparsification info for {type(self.model).__name__}: "
             f"{sparsification_info.params_total} total params. "
         )
+        sparsity_percent_formatted = "{:.2f}".format(
+            sparsification_info.params_prunable_sparse_percent
+        )
         _LOGGER.info(
             f"There are {sparsification_info.params_prunable_total} prunable "
-            f"params which have {sparsification_info.params_prunable_sparse_percent} "
+            f"params which have {sparsity_percent_formatted}% "
             "avg sparsity."
+        )
+
+        quant_percent_formatted = "{:.2f}".format(
+            sparsification_info.params_quantized_percent
         )
         _LOGGER.info(
             f"There are {sparsification_info.params_quantizable} quantizable "
             f"params, with a quantization percentage of "
-            f"{sparsification_info.params_quantized_percent}."
+            f"{quant_percent_formatted}%."
         )
 
     def _prepare_model_for_fsdp(self):

@@ -30,7 +30,7 @@ __all__ = [
     "fix_fsdp_module_name",
 ]
 
-FSDP_WRAPPER_NAME = "_fsdp_wrapped_module."
+FSDP_WRAPPER_NAME = "_fsdp_wrapped_module"
 
 
 def summon_full_params_context(model, offload_to_cpu: bool = False):
@@ -61,9 +61,13 @@ def main_process_first_context():
 
 def fix_fsdp_module_name(name: str) -> str:
     """
-    Remove FSDP wrapper prefixes from a module name
+    Remove FSDP wrapper prefixes from a module name.
+    Accounts for scenario where FSDP_WRAPPER_NAME is
+    at the end of the name, as well as in the middle.
 
     :param name: name to strip
     :return: stripped name
     """
-    return name.replace(FSDP_WRAPPER_NAME, "")
+    return name.replace(FSDP_WRAPPER_NAME + ".", "").replace(
+        "." + FSDP_WRAPPER_NAME, ""
+    )

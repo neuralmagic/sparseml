@@ -21,7 +21,9 @@ from sparseml.core import State
 from sparseml.core.event import Event, EventType
 from sparseml.core.factory import ModifierFactory
 from sparseml.core.framework import Framework
-from sparseml.modifiers.quantization.pytorch import QuantizationModifierPyTorch
+from sparseml.modifiers.quantization_legacy.pytorch import (
+    LegacyQuantizationModifierPyTorch,
+)
 from sparseml.pytorch.sparsification.quantization.quantize import (
     is_qat_helper_module,
     is_quantizable_module,
@@ -45,14 +47,14 @@ class TestQuantizationRegistered(unittest.TestCase):
 
     def test_quantization_registered(self):
         quant_obj = ModifierFactory.create(
-            type_="QuantizationModifier",
+            type_="LegacyQuantizationModifier",
             framework=Framework.pytorch,
             allow_experimental=False,
             allow_registered=True,
             **self.kwargs,
         )
 
-        self.assertIsInstance(quant_obj, QuantizationModifierPyTorch)
+        self.assertIsInstance(quant_obj, LegacyQuantizationModifierPyTorch)
 
 
 @pytest.mark.unit
@@ -71,7 +73,7 @@ class TestQuantizationOneShot(unittest.TestCase):
         state = State(framework=Framework.pytorch, start_event=Event())
         state.update(model=model, start=-1)
 
-        modifier = QuantizationModifierPyTorch(**self.kwargs)
+        modifier = LegacyQuantizationModifierPyTorch(**self.kwargs)
 
         modifier.initialize(state)
 
@@ -108,7 +110,7 @@ class TestQuantizationTraining(unittest.TestCase):
     def test_quantization_training(self, model_class):
         model = model_class()
 
-        modifier = QuantizationModifierPyTorch(**self.kwargs)
+        modifier = LegacyQuantizationModifierPyTorch(**self.kwargs)
 
         testing_harness = LifecyleTestingHarness(model=model)
         modifier.initialize(testing_harness.get_state())

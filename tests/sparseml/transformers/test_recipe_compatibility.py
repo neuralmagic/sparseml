@@ -31,7 +31,7 @@ def model_path(tmp_path):
 def recipe():
     return """test_stage:
   obcq_modifiers:
-    QuantizationModifier:
+    LegacyQuantizationModifier:
       ignore:
         - LlamaRotaryEmbedding
         - LlamaRMSNorm

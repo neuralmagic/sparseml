@@ -373,7 +373,7 @@ def get_openplatypus(nsamples, seed, seqlen, model, split):
     tokenizer = AutoTokenizer.from_pretrained(model)
 
     def _process_sample(sample):
-        if "input" in sample:
+        if "input" in sample and sample["input"] != "":
             processed_sample = alpaca_template["prompt_input"].format(
                 instruction=sample["instruction"], input=sample["input"]
             )

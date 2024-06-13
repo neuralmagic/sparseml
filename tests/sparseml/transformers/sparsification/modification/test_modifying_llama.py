@@ -23,7 +23,7 @@ from sparseml.transformers.sparsification.modification.modifying_llama import (
 def llama_recipe():
     return """test_stage:
   quant_modifiers:
-    QuantizationModifier:
+    LegacyQuantizationModifier:
       ignore:
         - MatMulRightInput_QK
         - MatMulLeftInput_QK

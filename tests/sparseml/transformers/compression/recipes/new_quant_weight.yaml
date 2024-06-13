@@ -1,6 +1,6 @@
 test_stage:
     quant_modifiers:
-        vLLMQuantizationModifier:
+        QuantizationModifier:
             ignore: ["lm_head", "model.layers.0.mlp.down_proj"]
             config_groups:
                 group_0:
@@ -12,9 +12,7 @@ test_stage:
                     input_activations: null
                     output_activations: null
                     targets: ["Linear", "Embedding"]
-        SparseGPTModifier:
-            sparsity: 0.0
+        GPTQModifier:
             block_size: 128
             sequential_update: False
-            quantize: True
             targets: ["re:model.layers.\\d+$"]
