@@ -54,3 +54,11 @@ jobs:
             BRANCH=${{github.head_ref}}
           push: true
           tags: ghcr.io/neuralmagic/sparseml-dev:${{ inputs.name }}
+      
+      - name: Build Nightly Docker Container
+        if: ${{ inputs.dev == 'false' && inputs.release == 'false'}}
+        uses: docker/build-push-action@v4
+        with:
+          context: ./docker/containers/docker_nightly
+          push: true
+          tags: ghcr.io/neuralmagic/sparseml-nightly:latest, ghcr.io/neuralmagic/sparseml-nightly:${{ steps.date.outputs.date }}
