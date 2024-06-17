@@ -16,18 +16,25 @@ import os
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
+from utils.artifacts import get_release_and_version
 
 
-# default variables to be overwritten by the version.py file
-is_release = None
-is_dev = None
-version = "unknown"
-version_major_minor = version
+package_path = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "src", "sparseml"
+)
+(
+    is_release,
+    is_dev,
+    version,
+    version_major,
+    version_minor,
+    version_bug,
+) = get_release_and_version(package_path)
 
 # load and overwrite version and release info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
-version_nm_deps = f"{version_major_minor}.0"
+version_nm_deps = f"{version}.0"
 
 if is_release:
     _PACKAGE_NAME = "sparseml"
