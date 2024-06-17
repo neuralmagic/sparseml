@@ -16,12 +16,12 @@ quant_stage:
                         num_bits: 8
                         type: "int"
                         symmetric: true
-                        strategy: "channel"
+                        strategy: "tensor"
                     input_activations:
                         num_bits: 8
                         type: "int"
                         symmetric: true
-                        dynamic: True
+                        dynamic: true
                         strategy: "token"
                     targets: ["Linear"]
 """
