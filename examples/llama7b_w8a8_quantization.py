@@ -16,19 +16,18 @@ quant_stage:
                         num_bits: 8
                         type: "int"
                         symmetric: true
-                        strategy: "channel"
                     input_activations:
                         num_bits: 8
                         type: "int"
+                        dynamic: true
                         symmetric: true
-                        dynamic: True
                         strategy: "token"
                     targets: ["Linear"]
 """
 
 # setting device_map to auto to spread the model evenly across all available GPUs
 # load the model in as bfloat16 to save on memory and compute
-model_stub = "zoo:llama2-7b-ultrachat200k_llama2_pretrain-base"
+model_stub = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"
 model = SparseAutoModelForCausalLM.from_pretrained(
     model_stub, torch_dtype=torch.bfloat16, device_map="auto"
 )
@@ -37,7 +36,7 @@ model = SparseAutoModelForCausalLM.from_pretrained(
 dataset = "ultrachat-200k"
 
 # save location of quantized model out
-output_dir = "./output_llama7b_w8a8_channel_dynamic_compressed"
+output_dir = "/network/sadkins/tinyllama-oneshot-w8a8-dynamic-token"
 
 # set dataset config parameters
 splits = {"calibration": "train_gen[:5%]"}
