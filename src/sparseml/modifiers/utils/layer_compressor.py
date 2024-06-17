@@ -134,6 +134,8 @@ class LayerCompressor:
     def compress(self, actorder: bool = False):
         """
         Apply compression to each wrapped submodule in the layer
+        
+        :param: actorder: flag to apply activation reordering
         """
 
         @torch.no_grad()

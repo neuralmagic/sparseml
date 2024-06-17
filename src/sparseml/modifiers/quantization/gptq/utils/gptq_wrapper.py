@@ -89,6 +89,7 @@ class GPTQWrapper(ModuleCompressionWrapper):
         Run pruning and quantization(if applicable) on the layer up to the target
         sparsity value.
 
+        :param actorder: Flag to apply activation reordering
         :param blocksize: Number of columns to compress in one pass
         :param percdamp: Amount of dampening to apply to H, as a fraction of the
             diagonal norm
