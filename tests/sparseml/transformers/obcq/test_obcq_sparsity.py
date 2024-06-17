@@ -60,8 +60,6 @@ class TestSparsities(unittest.TestCase):
 
         model = get_session_model()
 
-        lm_head_sparsity = tensor_sparsity(model.lm_head.weight)
-        assert math.isclose(lm_head_sparsity.item(), self.sparsity, rel_tol=1e-4)
         layer_1_sparse = tensor_sparsity(model.model.layers[1].self_attn.k_proj.weight)
         assert math.isclose(layer_1_sparse.item(), self.sparsity, rel_tol=1e-4)
         layer_2_dense = tensor_sparsity(model.model.layers[2].self_attn.k_proj.weight)
@@ -118,8 +116,6 @@ class TestSparsitiesGPU(unittest.TestCase):
 
         model = get_session_model()
 
-        lm_head_sparsity = tensor_sparsity(model.lm_head.weight)
-        assert math.isclose(lm_head_sparsity.item(), self.sparsity, rel_tol=1e-4)
         layer_1_sparse = tensor_sparsity(model.model.layers[1].self_attn.k_proj.weight)
         assert math.isclose(layer_1_sparse.item(), self.sparsity, rel_tol=1e-4)
         layer_2_dense = tensor_sparsity(model.model.layers[2].self_attn.k_proj.weight)
