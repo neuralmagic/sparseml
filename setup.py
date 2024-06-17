@@ -34,7 +34,7 @@ package_path = os.path.join(
 # load and overwrite version and release info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
-version_nm_deps = f"{version}.0"
+version_nm_deps = f"{version_major}.{version_minor}.0"
 
 if is_release:
     _PACKAGE_NAME = "sparseml"
