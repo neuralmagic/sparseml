@@ -1,4 +1,4 @@
-name: Test Wheel and Push to Internal PyPi
+name: Test Wheel and Publish
 on:
   workflow_call:
     inputs:
@@ -11,9 +11,15 @@ on:
         required: true
       python:
         type: string
+      dev:
+        type: string
+        required: true 
+      release:
+        type: string
+        required: true
 
 jobs:
-  test-wheel-and-push-internal:
+  test-wheel-and-publish:
     runs-on: ${{ inputs.build-label }}
     steps:
     - uses: actions/setup-python@v4
@@ -36,24 +42,37 @@ jobs:
         filename: ${{ inputs.whl }}
         dst: dist_s3
 
-    - name: Set Env
-      run: |
-        pip3 install virtualenv
-        virtualenv venv
-        source venv/bin/activate
-  
     - name: Fetch name of whl
       run: |
           echo "FILENAME=$(echo dist_s3/*.whl)" >> $GITHUB_ENV
 
     - name: Install whl
       run: |
-          pip3 install $FILENAME[dev]
+          pip3 install $FILENAME[dev,onnxruntime,torch,torchvision,transformers]
 
     - name: Checkout code
       uses: actions/checkout@v3
 
     - name: Remove src files and run tests
       run: |
+            pwd
             rm -rf src
             make test
+
+    - name: Make directory for wheel
+      run: |
+          mkdir dist_s3
+          
+    - name: Pull from s3
+      uses: neuralmagic/nm-actions/actions/s3_pull@main
+      with:
+        filename: ${{ inputs.whl }}
+        dst: dist_s3
+
+    - name: Publish Nightly Wheel
+      if: ${{ inputs.DEV == 'false' && inputs.RELEASE == 'false'}}
+      uses: neuralmagic/nm-actions/actions/publish-whl@main
+      with:
+        username: ${{ secrets.PYPI_PUBLIC_USER }}
+        password: ${{ secrets.PYPI_PUBLIC_AUTH }}
+        whl: ./$FILENAME

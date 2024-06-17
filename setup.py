@@ -45,7 +45,7 @@ else:
 
 _deps = [
     "pyyaml>=5.0.0",
-    "numpy>=1.17.0",
+    "numpy>=1.17.0,<2.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.15.0",
@@ -63,11 +63,9 @@ _deps = [
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
-_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
-_deepsparse_deps = [
-    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
-]
-_deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
+_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}>=1.7.0"]
+_deepsparse_deps = [f"{'deepsparse' if is_release else 'deepsparse-nightly'}>=1.7.0"]
+_deepsparse_ent_deps = ["deepsparse-ent>=1.7.0"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _clip_deps = ["open_clip_torch==2.20.0"]
