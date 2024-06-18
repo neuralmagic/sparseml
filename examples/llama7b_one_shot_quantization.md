@@ -23,7 +23,8 @@ from sparseml.modifiers.quantization.gptq import GPTQModifier
 
 gptq = GPTQModifier(
     targets="Linear",
-    scheme="W4A16"
+    scheme="W4A16",
+    ignore=["lm_head"],
 )
 ```
 

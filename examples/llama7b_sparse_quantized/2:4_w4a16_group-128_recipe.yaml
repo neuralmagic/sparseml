@@ -23,6 +23,7 @@ quantization_stage:
   run_type: oneshot
   quantization_modifiers:
     GPTQModifier:
+      ignore: [ "lm_head" ]
       sequential_update: false
       config_groups:
         group_0:
