@@ -11,7 +11,7 @@ on:
         description: "git tag, commit or branch name for the release"
         type: string
         required: true
-        default: 'release/1.8
+        default: 'release/1.8'
 
 jobs:
   build-release-wheel:
