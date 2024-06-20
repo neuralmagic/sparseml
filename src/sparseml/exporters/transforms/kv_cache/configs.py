@@ -84,7 +84,7 @@ class KeyValueCacheConfig(BaseModel):
         "the kv cache. If this is not provided, no transpose will "
         "be applied.",
     )
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, protected_namespaces=())
 
 
 OPT_CONFIG = KeyValueCacheConfig(
