@@ -2,7 +2,7 @@
 
 This example uses SparseML and Compressed-Tensors to create a 2:4 sparse and quantized Llama2-7b model.
 The model is calibrated and trained with the ultachat200k dataset.
-At least 75GB of GPU memory is required to run this example.
+At least 85GB of GPU memory is required to run this example.
 
 Follow the steps below one by one in a code notebook, or run the full example script 
 as `python examples/llama7b_sparse_quantized/llama7b_sparse_w4a16.py`
