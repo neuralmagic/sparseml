@@ -2,9 +2,10 @@
 
 This example uses SparseML and Compressed-Tensors to create a 2:4 sparse and quantized Llama2-7b model.
 The model is calibrated and trained with the ultachat200k dataset.
-At least 75GB of GPU memory is required to run this example.
+At least 85GB of GPU memory is required to run this example.
 
-Follow the steps below, or to run the example as `python examples/llama7b_sparse_quantized/llama7b_sparse_w4a16.py`
+Follow the steps below one by one in a code notebook, or run the full example script 
+as `python examples/llama7b_sparse_quantized/llama7b_sparse_w4a16.py`
 
 ## Step 1: Select a model, dataset, and recipe
 In this step, we select which model to use as a baseline for sparsification, a dataset to
@@ -36,7 +37,8 @@ recipe = "2:4_w4a16_recipe.yaml"
 
 ## Step 2: Run sparsification using `apply`
 The `apply` function applies the given recipe to our model and dataset.
-The hardcoded kwargs may be altered based on each model's needs.
+The hardcoded kwargs may be altered based on each model's needs. This code snippet should 
+be run in the same Python instance as step 1.
 After running, the sparsified model will be saved to `output_llama7b_2:4_w4a16_channel`.
 
 ```python
@@ -67,14 +69,16 @@ apply(
 ### Step 3: Compression
 
 The resulting model will be uncompressed. To save a final compressed copy of the model 
-run the following:
+run the following in the same Python instance as the previous steps.
 
 ```python
 import torch
+import os
 from sparseml.transformers import SparseAutoModelForCausalLM
 
 compressed_output_dir = "output_llama7b_2:4_w4a16_channel_compressed"
-model = SparseAutoModelForCausalLM.from_pretrained(output_dir, torch_dtype=torch.bfloat16)
+uncompressed_path = os.path.join(output_dir, "stage_quantization")
+model = SparseAutoModelForCausalLM.from_pretrained(uncompressed_path, torch_dtype=torch.bfloat16)
 model.save_pretrained(compressed_output_dir, save_compressed=True)
 ```
 
