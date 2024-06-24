@@ -48,3 +48,4 @@ from .remove_duplicate_qconv_weights import RemoveDuplicateQConvWeights
 from .remove_duplicate_quantize_ops import RemoveDuplicateQuantizeOps
 from .skip_input_quantize import SkipInputQuantize
 from .kv_cache import *
+from .weightsonly import WeightsOnly
