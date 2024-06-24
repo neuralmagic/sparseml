@@ -145,6 +145,14 @@ class AddInput(Module):
         return x
 
 
+class AddInputConv(AddInput):
+    pass
+
+
+class AddInputIdentity(AddInput):
+    pass
+
+
 class _BasicBlock(Module):
     def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
         super().__init__()
@@ -168,8 +176,8 @@ class _BasicBlock(Module):
             else None
         )
 
-        self.add_input_conv = AddInput()
-        self.add_input_identity = AddInput()
+        self.add_input_conv = AddInputConv()
+        self.add_input_identity = AddInputIdentity()
         if FloatFunctional:
             self.add_relu = FloatFunctional()
         else:
@@ -234,8 +242,8 @@ class _BottleneckBlock(Module):
             else None
         )
 
-        self.add_input_conv = AddInput()
-        self.add_input_identity = AddInput()
+        self.add_input_conv = AddInputConv()
+        self.add_input_identity = AddInputIdentity()
         if FloatFunctional:
             self.add_relu = FloatFunctional()
         else:
@@ -299,8 +307,8 @@ class _BasicBlockV2(Module):
             else None
         )
 
-        self.add_input_conv = AddInput()
-        self.add_input_identity = AddInput()
+        self.add_input_conv = AddInputConv()
+        self.add_input_identity = AddInputIdentity()
 
         self.initialize()
 
@@ -366,8 +374,8 @@ class _BottleneckBlockV2(Module):
             if in_channels != out_channels or stride != 1
             else None
         )
-        self.add_input_conv = AddInput()
-        self.add_input_identity = AddInput()
+        self.add_input_conv = AddInputConv()
+        self.add_input_identity = AddInputIdentity()
 
         self.initialize()
 
