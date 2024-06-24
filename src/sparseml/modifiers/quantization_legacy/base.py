@@ -14,6 +14,8 @@
 
 from typing import Any, Dict, List, Optional
 
+from pydantic import ConfigDict
+
 from sparseml.core import Event, Modifier
 
 
@@ -80,6 +82,8 @@ class LegacyQuantizationModifier(Modifier):
     num_calibration_steps: Optional[int] = None
     post_oneshot_calibration: Optional[bool] = False
     strict: bool = True
+
+    model_config = ConfigDict(protected_namespaces=())
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -18,9 +18,9 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import Field
 
 from compressed_tensors.quantization import (
-    QuantizationConfig,
     QuantizationScheme,
     is_preset_scheme,
+    preset_name_to_scheme,
 )
 from sparseml.core import Modifier
 from sparseml.core.factory import ModifierFactory
@@ -78,6 +78,7 @@ class GPTQModifier(Modifier):
         QuantizationScheme except targets, which will be set to the targets parameter
         set at the modifier level. Can also be set to a dictionary of the format
         `preset_scheme_name: targets` for example: `W8A8: ['Linear']` for weight 8 bit
+        or a string of a preset scheme if targets is provided
         and activation 8 bit quantization on the Linear layers.
     """
 
@@ -91,7 +92,7 @@ class GPTQModifier(Modifier):
     ignore: List[str] = Field(default_factory=list)
     disable_quantization_observer_epoch: Optional[float] = None
     num_calibration_steps: Optional[int] = None
-    scheme: Optional[Dict[str, Any]] = None
+    scheme: Optional[Union[str, Dict[str, Any]]] = None
     compressible_layers_: Optional[List] = None
     quantization_modifier_: Any = None
 
@@ -169,32 +170,33 @@ class GPTQModifier(Modifier):
             if getattr(self, key, False)
         }
 
+        if isinstance(self.targets, str):
+            self.targets = [self.targets]
+
         if self.scheme is not None:
             # takes precedence over config_groups
 
-            if any(is_preset_scheme(key) for key in self.scheme.keys()):
-                config_groups = QuantizationConfig(
-                    config_groups=self.scheme
-                ).config_groups
-                quant_args["config_groups"] = config_groups
-            else:
-                targets = self.targets or ["Linear"]
-                config_group = QuantizationScheme.model_validate(
-                    {"targets": targets, **self.scheme}
-                )
-                quant_args["config_groups"] = {"config_group_0": config_group}
+            if isinstance(self.scheme, str) and is_preset_scheme(self.scheme):
+                # attach targets to scheme
+                self.scheme = {self.scheme: self.targets}
 
-            targets = self.targets or ["Linear"]
-            config_group = QuantizationScheme.model_validate(
-                {"targets": targets, **self.scheme}
-            )
-            quant_args["config_groups"] = {"config_group_0": config_group}
+            quant_args["config_groups"] = {}
+            for idx, key in enumerate(self.scheme.keys()):
+                if is_preset_scheme(key):
+                    scheme = preset_name_to_scheme(key, self.scheme[key])
+                else:
+                    scheme = QuantizationScheme.model_validate(
+                        {"targets": self.scheme[key], **self.scheme}
+                    )
 
-        if "config_groups" not in quant_args:
+                group_name = f"group_{idx}"
+                quant_args["config_groups"][group_name] = scheme
+
+        if "config_groups" not in quant_args or len("config_groups") == 0:
             default_quant_scheme = QuantizationScheme.default_scheme(
                 targets=self.targets
             )
-            quant_args["config_groups"] = {"config_group_0": default_quant_scheme}
+            quant_args["config_groups"] = {"group_0": default_quant_scheme}
         _LOGGER.info(f"Building quantization modifier with args: {quant_args}")
         vllm_quant_config = {"QuantizationModifier": quant_args}
         self._build_quant_modifier_from_dict(vllm_quant_config, framework)

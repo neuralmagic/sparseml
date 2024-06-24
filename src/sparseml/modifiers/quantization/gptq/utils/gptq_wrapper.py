@@ -105,6 +105,14 @@ class GPTQWrapper(ModuleCompressionWrapper):
             W = W.t()
         W = W.float()
 
+        sparsity = tensor_sparsity(W)
+        preserve_zeros = sparsity >= SPARSITY_THRESHOLD
+        W_nz_mask = (
+            (~torch.isclose(W, torch.zeros(1, device=W.device).float())).float()
+            if preserve_zeros
+            else None
+        )
+
         tick = time.time()
 
         dead = torch.diag(self.H) == 0
@@ -127,17 +135,7 @@ class GPTQWrapper(ModuleCompressionWrapper):
         self.H = torch.linalg.cholesky(self.H, upper=True)
         Hinv = self.H
 
-        sparsity = tensor_sparsity(W)
-        mask = (
-            torch.where(
-                W == 0,
-                torch.tensor(1, dtype=torch.bool),
-                torch.tensor(0, dtype=torch.bool),
-            )
-            if sparsity >= SPARSITY_THRESHOLD
-            else None
-        )
-        
+
         g_idx = []
         if actorder:
             g_idx = [perm[i] // quant_scheme.weights.group_size for i in range(self.columns)]
@@ -166,22 +164,14 @@ class GPTQWrapper(ModuleCompressionWrapper):
             
             # """
 
-            if sparsity >= SPARSITY_THRESHOLD:
-                tmp = (
-                    (~mask[:, i1:i2])
-                    * W1**2
-                    / (torch.diag(Hinv1).reshape((1, -1))) ** 2
-                )
-                thresh = torch.sort(tmp.flatten())[0][int(tmp.numel() * sparsity)]
-                mask1 = tmp <= thresh
+            if preserve_zeros:
+                W1_nz_mask = W_nz_mask[:, i1:i2]
 
             for i in range(count):
                 w = W1[:, i]
                 d = Hinv1[i, i]
 
                 q = w.clone()
-                if sparsity >= SPARSITY_THRESHOLD:
-                    q[mask1[:, i]] = 0
 
                 if hasattr(self.layer, "weight_fake_quant"):
                     scale = self.layer.weight_fake_quant.scale
@@ -243,13 +233,21 @@ class GPTQWrapper(ModuleCompressionWrapper):
                 Losses1[:, i] = (w - q) ** 2 / d**2
 
                 err1 = (w - q) / d
-                W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0))
+                w1_err = err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0))
+                if preserve_zeros:
+                    W1[:, i:] -= w1_err * W1_nz_mask[:, i:]
+                else:
+                    W1[:, i:] -= w1_err
                 Err1[:, i] = err1
 
             W[:, i1:i2] = Q1
             Losses += torch.sum(Losses1, 1) / 2
 
-            W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
+            w_err = Err1.matmul(Hinv[i1:i2, i2:])
+            if preserve_zeros:
+                W[:, i2:] -= w_err * W_nz_mask[:, i2:]
+            else:
+                W[:, i2:] -= w_err
 
         _LOGGER.info("time %.2f" % (time.time() - tick))
         _LOGGER.info("error %.2f" % torch.sum(Losses).item())

@@ -4,15 +4,8 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-      - 'release/[0-9]+.[0-9]+'
-  push:
-    branches:
-      - 'release/[0-9]+.[0-9]+'
-      - main
-  release:
-    types: [created, published]
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 20 * * *'
 
 permissions:
   id-token: write
@@ -23,10 +16,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
-# if not dev or release, will create a nightly build
+# TODO: do we want to push to nightly everytime we push to main?
+# if not dev or release, will create a nightly build; turning off release for now
 env:
-  PRODUCTION: ${{ github.event_name == 'schedule' || github.event_name == 'release'}}
-  RELEASE: ${{ github.event_name =='release' || startsWith(github.base_ref, 'release/') }}
+  RELEASE: 'false'
   DEV: ${{ github.base_ref == 'main' && github.event_name == 'pull_request'}}
 
 jobs:
@@ -42,8 +35,14 @@ jobs:
           echo "dev=$DEV" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
 
-  build-wheel-and-push:
+  test-nightly:
     needs: set-outputs
+    if: ${{ needs.set-outputs.outputs.dev  == 'false' && needs.set-outputs.outputs.release  == 'false'}}
+    uses: ./.github/workflows/test-nightly.yml
+
+  build-wheel-and-push:
+    needs: [set-outputs, test-nightly]
+    if: ${{ always() && needs.set-outputs.outputs.dev == 'false' && needs.test-nightly.result == 'success' || always() && needs.set-outputs.outputs.dev  == 'true' && needs.set-outputs.result == 'success' }}
     uses: ./.github/workflows/build-wheel.yml
     with:
       build-label: ubuntu-20.04
@@ -55,22 +54,24 @@ jobs:
       python: '3.10'
     secrets: inherit
 
-  test-wheel-and-push-internal:
-    needs: build-wheel-and-push
-    uses: ./.github/workflows/test-wheel-push-to-internal.yml
+  test-wheel-and-publish:
+    needs: [set-outputs, build-wheel-and-push]
+    if: ${{ always() && !cancelled() && needs.build-wheel-and-push.result == 'success' }}
+    uses: ./.github/workflows/test-wheel-and-publish.yml
     with:
       build-label: ubuntu-20.04
       whl: ${{ needs.build-wheel-and-push.outputs.wheel }}
       python: '3.10'
+      dev: ${{ needs.set-outputs.outputs.dev }}
+      release: ${{ needs.set-outputs.outputs.release  }}
     secrets: inherit
 
-  # TODO: add nightly and release container build steps once wheel build push
-  # to production is automated. Removed until then.
   build-container-and-push:
-    needs: [set-outputs, test-wheel-and-push-internal]
+    needs: [test-wheel-and-publish, set-outputs]
+    if: ${{ always() && !cancelled() && needs.test-wheel-and-publish.result == 'success' }}
     uses: ./.github/workflows/build-container.yml
     with:
-      build-label: k8s-eng-gpu-64G-v100-32G
+      build-label: k8s-eng-gpu-16G-t4-32G
       dev: ${{ needs.set-outputs.outputs.dev }}
       release: ${{ needs.set-outputs.outputs.release  }}
       name: ${{ github.event.number }}
