@@ -83,7 +83,6 @@ class GPTQWrapper(ModuleCompressionWrapper):
 
     def fasterprune(
         self,
-        actorder: bool = False,
         blocksize: int = 128,
         percdamp: float = 0.01,
     ):
@@ -121,13 +120,6 @@ class GPTQWrapper(ModuleCompressionWrapper):
         self.H[dead, dead] = 1
         W[:, dead] = 0
 
-        # Or read from self.layer.quantization_scheme
-        if actorder:
-            perm = torch.argsort(torch.diag(self.H), descending=True)
-            W = W[:, perm]
-            self.H = self.H[perm][:, perm]
-            invperm = torch.argsort(perm)
-
         Losses = torch.zeros(self.rows, device=self.dev)
 
         damp = percdamp * torch.mean(torch.diag(self.H))
@@ -137,6 +129,9 @@ class GPTQWrapper(ModuleCompressionWrapper):
         self.H = torch.cholesky_inverse(self.H)
         self.H = torch.linalg.cholesky(self.H, upper=True)
         Hinv = self.H
+
+        actorder = False
+        invperm = None
 
         # See section 3.4 of https://arxiv.org/abs/2203.07259
         for i1 in range(0, self.columns, blocksize):
@@ -171,7 +166,15 @@ class GPTQWrapper(ModuleCompressionWrapper):
 
                 elif hasattr(self.layer, "quantization_scheme"):
                     quant_scheme = self.layer.quantization_scheme
+                    actorder = quant_scheme.weights.actorder
                     if quant_scheme.weights is not None:
+
+                        if actorder:
+                            perm = torch.argsort(torch.diag(self.H), descending=True)
+                            W = W[:, perm]
+                            self.H = self.H[perm][:, perm]
+                            invperm = torch.argsort(perm)
+
                         scale = self.layer.weight_scale
                         zero_point = self.layer.weight_zero_point
 
@@ -180,23 +183,15 @@ class GPTQWrapper(ModuleCompressionWrapper):
                             group_size = self.layer.weight.shape[1]
 
                         if actorder:
-                            g_idx = torch.tensor(
-                                [perm[j] // group_size for j in range(self.columns)],
-                                dtype=torch.int32,
-                                device=invperm.device
-                            )
-                            
+                            indices = torch.arange(self.columns, device=invperm.device)
+                            g_idx = (perm[indices] // group_size).to(dtype=torch.int32)
                             g_idx = g_idx[invperm]
-                            self.layer.weight_g_idx = Parameter(
-                                g_idx,
-                                requires_grad=False,
-                            )
+                            self.layer.weight_g_idx.data = g_idx
                         else:
-                            g_idx = torch.tensor(
-                                [j // group_size for j in range(self.columns)],
-                                dtype=torch.int32,
-                                device=W.device
+                            indices = torch.arange(
+                                self.columns, device=W.device, dtype=torch.int32
                             )
+                            g_idx = indices // group_size
 
                         from compressed_tensors.quantization import QuantizationStrategy
                         from compressed_tensors.quantization.lifecycle.forward import (
@@ -217,7 +212,6 @@ class GPTQWrapper(ModuleCompressionWrapper):
                                 q,
                                 scale[:, 0],
                                 zero_point[:, 0],
-                                # g_idx,
                                 quant_scheme.weights,
                             )
                         else:  # strategy == QuantizationStrategy.GROUP
@@ -230,11 +224,16 @@ class GPTQWrapper(ModuleCompressionWrapper):
                             # ends up being a channelwise application
                             altered_qargs = copy(quant_scheme.weights)
                             altered_qargs.strategy = QuantizationStrategy.CHANNEL
-                            
-                            # # apply g_idx 
-                            # if g_idx is not None:
-                            #     scale = scale[g_idx]
-                            #     zero_point = zero_point[g_idx]
+
+                            # apply g_idx
+                            if g_idx is not None:
+                                # scale and zp already transformed by group_size
+                                # extract first index of group_idze
+                                indices_to_extract = torch.arange(
+                                    0, g_idx.shape[0], group_size
+                                )
+                                scale = scale[:, g_idx[indices_to_extract]]
+                                zero_point = zero_point[:, g_idx[indices_to_extract]]
 
                             q = fake_quantize(
                                 q,
@@ -284,3 +283,22 @@ class GPTQWrapper(ModuleCompressionWrapper):
         """
         delattr(self, "H")
         super().free()
+
+
+"""
+(Pdb) scale.shape
+torch.Size([4096, 32])
+(Pdb) self.layer.shape
+*** AttributeError: 'Linear' object has no attribute 'shape'
+(Pdb) self.layer.weight.shape
+torch.Size([4096, 4096])
+
+
+
+(Pdb) scale.shape
+torch.Size([11008, 32])
+(Pdb) self.layer.weight.shape
+torch.Size([11008, 4096])
+
+
+"""

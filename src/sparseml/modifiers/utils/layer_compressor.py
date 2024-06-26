@@ -131,10 +131,10 @@ class LayerCompressor:
             module_wrapper.free()
         self.modules = None
 
-    def compress(self, actorder: bool = False):
+    def compress(self):
         """
         Apply compression to each wrapped submodule in the layer
-        
+
         :param: actorder: flag to apply activation reordering
         """
 
@@ -143,7 +143,7 @@ class LayerCompressor:
             if isinstance(module, self.module_compressor_class):
                 full_name = self._get_full_submodule_name(module.name)
                 _LOGGER.info(f"Compressing {full_name}...")
-                module.fasterprune(actorder=actorder, **self.args)
+                module.fasterprune(**self.args)
 
         self.layer.apply(prune)
 

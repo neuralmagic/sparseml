@@ -156,7 +156,7 @@ class GPTQModifierPyTorch(GPTQModifier):
                 layer_compressor.pre_compress()
                 _LOGGER.info(f"Calibrating {layer_compressor.name}...")
                 run_calibration_forward(self.model, dataloader, mask_padding=True)
-            layer_compressor.compress(self.actorder)
+            layer_compressor.compress()
             layer_compressor.post_compress()
             layer_compressor.revert_layer_wrappers()
             torch.cuda.empty_cache()
