@@ -192,10 +192,10 @@ class GPTQWrapper(ModuleCompressionWrapper):
                                 requires_grad=False,
                             )
                         else:
-                            g_idx = torch.Tensor(
+                            g_idx = torch.tensor(
                                 [j // group_size for j in range(self.columns)],
-                                
-                                device=W.device,
+                                dtype=torch.int32,
+                                device=W.device
                             )
 
                         from compressed_tensors.quantization import QuantizationStrategy
@@ -204,14 +204,12 @@ class GPTQWrapper(ModuleCompressionWrapper):
                         )
 
                         strategy = quant_scheme.weights.strategy
-                        breakpoint()
                         if strategy == QuantizationStrategy.TENSOR:
                             q = fake_quantize(
                                 q,
                                 scale,
                                 zero_point,
                                 self.layer.quantization_scheme.weights,
-                                g_idx,
                             )
                         elif strategy == QuantizationStrategy.CHANNEL:
                             # TODO: for channelwise why isn't this just a 1d tensor?
@@ -228,16 +226,20 @@ class GPTQWrapper(ModuleCompressionWrapper):
                             input_dim_group = (
                                 column_idx // quant_scheme.weights.group_size
                             )
-
                             # Since we're only applying quantization to a slice, this
                             # ends up being a channelwise application
                             altered_qargs = copy(quant_scheme.weights)
                             altered_qargs.strategy = QuantizationStrategy.CHANNEL
+                            
+                            # # apply g_idx 
+                            # if g_idx is not None:
+                            #     scale = scale[g_idx]
+                            #     zero_point = zero_point[g_idx]
+
                             q = fake_quantize(
                                 q,
                                 scale[:, input_dim_group],
                                 zero_point[:, input_dim_group],
-                                # g_idx,
                                 altered_qargs,
                             )
 
