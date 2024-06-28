@@ -14,8 +14,6 @@
 
 import time
 
-from torch.nn import Parameter
-
 from sparseml.modifiers.utils import SPARSITY_THRESHOLD
 from sparseml.modifiers.utils.compression_wrapper import ModuleCompressionWrapper
 
