@@ -50,6 +50,7 @@ class GPTQModifier(Modifier):
             - LayerCompressor.revert_layer_wrappers()
 
 
+    :param actorder: Whether to use activation reordering or not
     :param sequential_update: Whether or not to update weights sequentially by layer,
         True saves on GPU memory
     :param targets: list of layer names to compress during GPTQ, or '__ALL__'
