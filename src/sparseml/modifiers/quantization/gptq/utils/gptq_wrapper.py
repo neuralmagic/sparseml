@@ -281,22 +281,3 @@ class GPTQWrapper(ModuleCompressionWrapper):
         """
         delattr(self, "H")
         super().free()
-
-
-"""
-(Pdb) scale.shape
-torch.Size([4096, 32])
-(Pdb) self.layer.shape
-*** AttributeError: 'Linear' object has no attribute 'shape'
-(Pdb) self.layer.weight.shape
-torch.Size([4096, 4096])
-
-
-
-(Pdb) scale.shape
-torch.Size([11008, 32])
-(Pdb) self.layer.weight.shape
-torch.Size([11008, 4096])
-
-
-"""
