@@ -16,12 +16,12 @@ quant_stage:
                         num_bits: 8
                         type: "int"
                         symmetric: true
-                        strategy: "channel"
+                        strategy: "tensor"
                     input_activations:
                         num_bits: 8
                         type: "int"
                         symmetric: true
-                        dynamic: True
+                        dynamic: true
                         strategy: "token"
                     targets: ["Linear"]
 """
@@ -37,7 +37,7 @@ model = SparseAutoModelForCausalLM.from_pretrained(
 dataset = "ultrachat-200k"
 
 # save location of quantized model out
-output_dir = "./output_llama7b_w8a8_channel_dynamic_compressed"
+output_dir = "./output_llama7b_w8a8_dynamic_compressed"
 
 # set dataset config parameters
 splits = {"calibration": "train_gen[:5%]"}

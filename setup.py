@@ -16,18 +16,25 @@ import os
 from typing import Dict, List, Tuple
 
 from setuptools import find_packages, setup
+from utils.artifacts import get_release_and_version
 
 
-# default variables to be overwritten by the version.py file
-is_release = None
-is_dev = None
-version = "unknown"
-version_major_minor = version
+package_path = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "src", "sparseml"
+)
+(
+    is_release,
+    is_dev,
+    version,
+    version_major,
+    version_minor,
+    version_bug,
+) = get_release_and_version(package_path)
 
 # load and overwrite version and release info from sparseml package
 exec(open(os.path.join("src", "sparseml", "version.py")).read())
 print(f"loaded version {version} from src/sparseml/version.py")
-version_nm_deps = f"{version_major_minor}.0"
+version_nm_deps = f"{version_major}.{version_minor}.0"
 
 if is_release:
     _PACKAGE_NAME = "sparseml"
@@ -38,7 +45,7 @@ else:
 
 _deps = [
     "pyyaml>=5.0.0",
-    "numpy>=1.17.0",
+    "numpy>=1.17.0,<2.0",
     "matplotlib>=3.0.0",
     "merge-args>=0.1.0",
     "onnx>=1.5.0,<1.15.0",
@@ -56,11 +63,9 @@ _deps = [
     "protobuf>=3.12.2,<=3.20.3",
     "click>=7.1.2,!=8.0.0",  # latest version < 8.0 + blocked version with reported bug
 ]
-_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}~={version_nm_deps}"]
-_deepsparse_deps = [
-    f"{'deepsparse' if is_release else 'deepsparse-nightly'}~={version_nm_deps}"
-]
-_deepsparse_ent_deps = [f"deepsparse-ent~={version_nm_deps}"]
+_nm_deps = [f"{'sparsezoo' if is_release else 'sparsezoo-nightly'}>=1.7.0"]
+_deepsparse_deps = [f"{'deepsparse' if is_release else 'deepsparse-nightly'}>=1.7.0"]
+_deepsparse_ent_deps = ["deepsparse-ent>=1.7.0"]
 
 _onnxruntime_deps = ["onnxruntime>=1.0.0"]
 _clip_deps = ["open_clip_torch==2.20.0"]
