@@ -86,18 +86,15 @@ SparseML enables you to create a sparse model trained on your dataset in two way
 ## Integrations
 
 <p>
-    <a href="integrations/torchvision">
+   <!--<a href="integrations/torchvision">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/pytorch-torchvision.png" width="136px" />
-    </a>
-    <a href="integrations/ultralytics-yolov5">
-        <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/ultralytics-yolov5.png" width="136px" />
-    </a>
+    </a> -->
     <a href="integrations/ultralytics-yolov8">
-        <img src="docs/images/ultralytics-yolov8.png" width="136px" />
+        <img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics-logotype-color.png" width="400px" alt="Ultralytics" />
     </a>
-    <a href="integrations/huggingface-transformers">
+    <!--<a href="integrations/huggingface-transformers">
         <img src="https://docs.neuralmagic.com/docs/source/highlights/sparseml/huggingface-transformers.png" width="136px" />
-    </a>
+    </a> -->
 </p>
 
 ## Tutorials
