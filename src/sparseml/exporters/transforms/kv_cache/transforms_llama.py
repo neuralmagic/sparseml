@@ -32,8 +32,10 @@ _LOGGER = logging.getLogger(__name__)
 
 class AdditionalTransformsLLAMA(AdditionalTransformsBase):
 
-    POSITION_IDS_MATCHING_PATTERN = dict(op_type="Range", children_ops=[["Unsqueeze"]])
-    CAUSAL_MASK_MATCHING_PATTERN = dict(op_type="Expand", children_ops=[["Add"]])
+    POSITION_IDS_MATCHING_PATTERN = dict(
+        op_type="Range", children_ops=[["Reshape"], ["Unsqueeze"]]
+    )
+    CAUSAL_MASK_MATCHING_PATTERN = dict(op_type="ScatterND")
     SLICE_MAX_INT_NAME = "slice_max_int"
 
     def transform(self, model: ModelProto) -> ModelProto:
@@ -69,12 +71,12 @@ class AdditionalTransformsLLAMA(AdditionalTransformsBase):
                 f"found {len(position_ids_nodes)}"
             )
 
-        model = self.inject_positions(model, position_ids_nodes, "Unsqueeze")
+        model = self.inject_positions(model, position_ids_nodes)
 
         causal_mask_nodes = self.find_nodes_by_pattern(
             model, pattern=self.CAUSAL_MASK_MATCHING_PATTERN
         )
-        model = self.inject_causal_mask(model, causal_mask_nodes, "Add")
+        model = self.inject_causal_mask(model, causal_mask_nodes)
         model = self.adjust_causal_mask(model)
         return model
 
