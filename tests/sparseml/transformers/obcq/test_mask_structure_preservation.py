@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 import sparseml
-from compressed_tensors.compressors.utils import tensor_follows_mask_structure
+from compressed_tensors.utils import tensor_follows_mask_structure
 from parameterized import parameterized_class
 from tests.testing_utils import parse_params, requires_torch
 
