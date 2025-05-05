@@ -21,38 +21,21 @@ limitations under the License.
 
 <h3>Libraries for applying sparsification recipes to neural networks with a few lines of code, enabling faster and smaller models</h3>
 
-<p>
-    <a href="https://docs.neuralmagic.com/sparseml/">
-        <img alt="Documentation" src="https://img.shields.io/badge/documentation-darkred?&style=for-the-badge&logo=read-the-docs" height=25>
-    </a>
-    <a href="https://neuralmagic.com/community/">
-        <img src="https://img.shields.io/badge/slack-purple?style=for-the-badge&logo=slack" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/issues">
-        <img src="https://img.shields.io/badge/support%20forums-navy?style=for-the-badge&logo=github" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/actions/workflows/test-check.yaml">
-        <img alt="Main" src="https://img.shields.io/github/workflow/status/neuralmagic/sparseml/Test%20Checks/main?label=build&style=for-the-badge" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/releases">
-        <img alt="GitHub release" src="https://img.shields.io/github/release/neuralmagic/sparseml.svg?style=for-the-badge" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/blob/main/LICENSE">
-        <img alt="GitHub" src="https://img.shields.io/github/license/neuralmagic/sparseml.svg?color=lightgray&style=for-the-badge" height=25>
-    </a>
-    <a href="https://github.com/neuralmagic/sparseml/blob/main/CODE_OF_CONDUCT.md">
-        <img alt="Contributor Covenant" src="https://img.shields.io/badge/Contributor%20Covenant-v2.1%20adopted-ff69b4.svg?color=yellow&style=for-the-badge" height=25>
-    </a>
-    <a href="https://www.youtube.com/channel/UCo8dO_WMGYbWCRnj_Dxr4EA">
-        <img src="https://img.shields.io/badge/-YouTube-red?&style=for-the-badge&logo=youtube&logoColor=white" height=25>
-    </a>
-     <a href="https://medium.com/limitlessai">
-        <img src="https://img.shields.io/badge/medium-%2312100E.svg?&style=for-the-badge&logo=medium&logoColor=white" height=25>
-    </a>
-    <a href="https://twitter.com/neuralmagic">
-        <img src="https://img.shields.io/twitter/follow/neuralmagic?color=darkgreen&label=Follow&style=social" height=25>
-    </a>
-</p>
+## 🚨 2025 End of Life Announcement: DeepSparse, SparseML, SparseZoo, and Sparsify
+
+Dear Community,
+
+We’re reaching out with heartfelt thanks and important news. Following [Neural Magic’s acquisition by Red Hat in January 2025](https://www.redhat.com/en/about/press-releases/red-hat-completes-acquisition-neural-magic-fuel-optimized-generative-ai-innovation-across-hybrid-cloud), we’re shifting our focus to commercial and open-source offerings built around [vLLM (virtual large language models)](https://www.redhat.com/en/topics/ai/what-is-vllm).
+
+As part of this transition, we have ceased development and will deprecate the community versions of **DeepSparse (including DeepSparse Enterprise), SparseML, SparseZoo, and Sparsify on June 2, 2025**. After that, these tools will no longer receive updates or support.
+
+From day one, our mission was to democratize AI through efficient, accessible tools. We’ve learned so much from your feedback, creativity, and collaboration—watching these tools become vital parts of your ML journeys has meant the world to us.
+
+Though we’re winding down the community editions, we remain committed to our original values. Now as part of Red Hat, we’re excited to evolve our work around vLLM and deliver even more powerful solutions to the ML community.
+
+To learn more about our next chapter, visit [ai.redhat.com](ai.redhat.com). Thank you for being part of this incredible journey.
+
+_With gratitude, The Neural Magic Team (now part of Red Hat)_
 
 ## Overview
 
@@ -62,7 +45,7 @@ SparseML is an open-source model optimization toolkit that enables you to create
    <img alt="SparseML Flow" src="docs/images/sparseml-workflow.png" width="60%" />
 </p>
 
-## ✨NEW✨ SparseML One-Shot LLM Compression
+## SparseML One-Shot LLM Compression
 
 Neural Magic is excited to preview one-shot LLM compression workflows using the new `SparseGPTModfier`! 
 
@@ -221,22 +204,7 @@ Additionally, more information can be found via [GitHub Releases.](https://githu
 
 The project is licensed under the [Apache License Version 2.0.](https://github.com/neuralmagic/sparseml/blob/main/LICENSE)
 
-## Community
-
-### Contribute
-
-We appreciate contributions to the code, examples, integrations, and documentation as well as bug reports and feature requests! [Learn how here.](https://github.com/neuralmagic/sparseml/blob/main/CONTRIBUTING.md)
-
-### Join
-
-For user help or questions about SparseML, sign up or log in to our [**Neural Magic Community Slack**](https://neuralmagic.com/community/). We are growing the community member by member and happy to see you there. Bugs, feature requests, or additional questions can also be posted to our [GitHub Issue Queue.](https://github.com/neuralmagic/sparseml/issues)
-
-You can get the latest news, webinar and event invites, research papers, and other ML Performance tidbits by [subscribing](https://neuralmagic.com/subscribe/) to the Neural Magic community.
-
-For more general questions about Neural Magic, please fill out this [form.](http://neuralmagic.com/contact/)
-
-### Cite
-
+## Cite
 Find this project useful in your research or other communications? Please consider citing:
 
 ```bibtex
